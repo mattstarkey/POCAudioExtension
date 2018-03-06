@@ -32,7 +32,6 @@ var streamId;
 function gotMediaStream(stream) {
 
   console.log(stream);
-  console.log();
 
   stream.getTracks().forEach(function (track) {
     console.log(track);
@@ -41,24 +40,19 @@ function gotMediaStream(stream) {
     });
   });
 
-
-
-  console.log("Trying");
   recorder = new MediaRecorder(stream);
-  console.log(recorder);
-
-  console.log(recorder.state);
 
   recorder.ondataavailable = function (event) {
     console.log('On Data Available');
+    console.log(event);
     if (event.data && event.data.size > 0) {
       recordedChunks.push(event.data);
+      console.log(recordedChunks);
       numrecordedChunks += event.data.byteLength;
     }
   };
 
   recorder.onstop = function (data) {
-    console.log('On Stop');
     console.log(data);
   };
 
@@ -71,9 +65,7 @@ function gotMediaStream(stream) {
 
   setTimeout(function () {
     recorder.stop();
-    console.log(recordedChunks);
   }, 2000);
-
 }
 
 function getUserMediaError(error) {
@@ -86,14 +78,24 @@ chrome.desktopCapture.chooseDesktopMedia(["tab", "audio"], function (approved) {
   console.log(streamId);
 
   navigator.webkitGetUserMedia({
-    audio: true
+    audio: {
+      mandatory: {
+        chromeMediaSource: "desktop",
+        chromeMediaSourceId: streamId
+      }
+    },
+    video: {
+      mandatory: {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: streamId,
+        minWidth: 1280,
+        minHeight: 720,
+        maxWidth: 1280,
+        maxHeight: 720
+      }
+    }
   }, gotMediaStream, getUserMediaError);
 
-  // {
-  //   mandatory: {
-  //     chromeMediaSource: "tab",
-  //     chromeMediaSourceId: streamId
-  //   }
-  // }
+  
 
 });
