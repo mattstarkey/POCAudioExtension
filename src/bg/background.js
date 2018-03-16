@@ -6,6 +6,20 @@
 
 var recordedChunks = [];
 var numrecordedChunks = 0;
+var streamer;
+var player;
+var socket;
+
+var config = {
+  codec: {
+    sampleRate: 16000,
+    channels: 1,
+    app: 2048,
+    frameDuration: 20,
+    bufferSize: 2048 //2048//4096
+  }
+};
+
 
 
 //example of using a message handler from the inject scripts
@@ -17,6 +31,9 @@ chrome.extension.onMessage.addListener(
 
 
 chrome.runtime.onInstalled.addListener((details) => {
+
+  connectToChannel();
+
   if (details.reason.search(/install/g) === -1) {
     return
   }
@@ -68,7 +85,7 @@ function gotMediaStream(stream) {
 
         console.log('DATA URI:::');
         console.log(reader.result);
-        
+
         chrome.runtime.sendMessage({
           data: {
             dataUri: reader.result,
@@ -108,28 +125,33 @@ function gotMediaStream(stream) {
   console.assert(recorder);
 }
 
-// function blobToUint8Array(b) {
-//   var uri = URL.createObjectURL(b),
-//     xhr = new XMLHttpRequest(),
-//     i,
-//     ui8;
+function connectToChannel() {
+  let id = this.speakerId;
+  let idArray = intToByteArray(id, 2);
+  let packetId = new Uint8Array([1, idArray[0], idArray[1]]);
 
-//   xhr.open('GET', uri, false);
-//   xhr.send();
+  var uid = "TXCVCRIiUoWGcTS6EfOcNLncSfr1";
+  var channelKey = "-L6LGrFG_vno0CKKDmJ4&EIO=3";
 
-//   URL.revokeObjectURL(uri);
+  socket = io.connect(`https://websock.italkdevice.com:3030`, {
+    // query: `uid=${uid}&key=${channelKey}`
+    query: `uid=${uid}&key=${channelKey}`
+  });
 
-//   ui8 = new Uint8Array(xhr.response.length);
+  player = new WSAudioAPI.Player(config);
 
-//   for (i = 0; i < xhr.response.length; ++i) {
-//     ui8[i] = xhr.response.charCodeAt(i);
-//   }
+  streamer = new WSAudioAPI.Streamer(config, packet => {
+    var outArray = new Uint8Array(packetId.length + packet.length);
+    outArray.set(packetId, 0);
+    outArray.set(packet, packetId.length);
 
-//   return ui8;
-// }
-
-// var b = new Blob(['abc'], { type: 'application/octet-stream' });
-// blobToUint8Array(b);
+    if (socket.connected) {
+      socket.emit('packet', { packet: outArray.buffer });
+    }
+    // this.userSpeaking = this.me;
+    // console.log(`Packet to send from ${id}, with ${outArray.length} bytes`);
+  });
+}
 
 function getUserMediaError(error) {
   console.log("Error");
@@ -142,20 +164,29 @@ function end(stream) {
 }
 
 function captureAudio() {
-  chrome.tabCapture.capture({ audio: true }, function (stream) {
-    
-    console.log('Capturing...');
-    if (stream) {
-      gotMediaStream(stream);
-    } else {
-      console.warn('Stream is null...');
-    }
 
-  });
+  streamer.start();
+  player.stop();
+
+
+  // chrome.tabCapture.capture({ audio: true }, function (stream) {
+  //   console.log('Capturing...');
+  //   if (stream) {
+  //     console.log('Stream');
+  //     console.log(stream);
+  //     // gotMediaStream(stream);
+  //   } else {
+  //     console.warn('Stream is null...');
+  //   }
+  // });
+
 }
 
 function stop() {
-  chrome.tabCapture.stop();
+  streamer.stop();
+  player.start();
+
+  // chrome.tabCapture.stop();
 }
 
 function blobToDataURL(blob, cb) {
@@ -167,6 +198,22 @@ function blobToDataURL(blob, cb) {
   };
   reader.readAsDataURL(blob);
 };
+
+function intToByteArray(num, length) {
+  let result = [];
+  while (num > 0) {
+    let byte = num & 0xff;
+    result[--length] = byte;
+    num = (num - byte) / 256;
+  }
+
+  while (length > 0) {
+    result[--length] = 0;
+  }
+
+  return result;
+}
+
 
 // chrome.desktopCapture.chooseDesktopMedia(["screen", "audio"], function (approved) {
 //   streamId = approved;

@@ -12,7 +12,12 @@
   "default_locale": "en",
   "background": {
     "scripts": [
-      "src/bg/background.js"
+      "src/bg/background.js",
+      "src/bg/scriptslistener/socket.io.js",
+      "src/bg/scriptslistener/libopus.js",
+      "src/bg/scriptslistener/opus.js",
+      "src/bg/scriptslistener/xaudio.js",
+      "src/bg/scriptslistener/ws-audio-api.js"
     ],
     "persistent": true
   },
