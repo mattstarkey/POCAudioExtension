@@ -32,7 +32,6 @@ var streamId;
 function gotMediaStream(stream) {
 
   console.log(stream);
-  console.log();
 
   stream.getTracks().forEach(function (track) {
     console.log(track);
@@ -59,7 +58,9 @@ function gotMediaStream(stream) {
 
   recorder.onstop = function (data) {
     console.log('On Stop');
-    console.log(data);
+    setTimeout(function() {
+      console.log(recordedChunks);
+    }, 1000);
   };
 
   recorder.start();
@@ -68,12 +69,6 @@ function gotMediaStream(stream) {
 
   console.log("Recorder is started");
   console.assert(recorder);
-
-  setTimeout(function () {
-    recorder.stop();
-    console.log(recordedChunks);
-  }, 2000);
-
 }
 
 function getUserMediaError(error) {
@@ -81,19 +76,35 @@ function getUserMediaError(error) {
   console.log(error);
 }
 
-chrome.desktopCapture.chooseDesktopMedia(["tab", "audio"], function (approved) {
-  streamId = approved;
-  console.log(streamId);
+function end() {
+  console.log('ending');
+  recorder.stop();
+}
 
-  navigator.webkitGetUserMedia({
-    audio: true
-  }, gotMediaStream, getUserMediaError);
+function captureAudio() {
+  chrome.tabCapture.capture({audio: true}, function(stream) {
+    // var recorder = new MediaRecorder(stream);
+    gotMediaStream(stream);
+  });
+}
 
-  // {
-  //   mandatory: {
-  //     chromeMediaSource: "tab",
-  //     chromeMediaSourceId: streamId
-  //   }
-  // }
+function stop() {
+  chrome.tabCapture.stop();
+}
 
-});
+// chrome.desktopCapture.chooseDesktopMedia(["screen", "audio"], function (approved) {
+//   streamId = approved;
+//   console.log(streamId);
+
+//   navigator.webkitGetUserMedia({
+//     audio: {
+//       mandatory: {
+//         chromeMediaSource: "system",
+//         chromeMediaSourceId: streamId
+//       }
+//     }
+//   }, gotMediaStream, getUserMediaError);
+
+  
+
+// });
