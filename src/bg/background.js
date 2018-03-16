@@ -58,8 +58,45 @@ function gotMediaStream(stream) {
 
   recorder.onstop = function (data) {
     console.log('On Stop');
-    setTimeout(function() {
+    stream.getTracks()[0].stop();
+    setTimeout(function () {
       console.log(recordedChunks);
+
+      var reader = new FileReader();
+
+      reader.addEventListener("load", function () {
+
+        console.log('DATA URI:::');
+        console.log(reader.result);
+        
+        chrome.runtime.sendMessage({
+          data: {
+            dataUri: reader.result,
+            type: recordedChunks[0].type
+          }
+        }, function (response) {
+          console.log(response);
+        });
+
+      }, false);
+
+      reader.readAsDataURL(recordedChunks[0]);
+
+
+      // blobToDataURL(recordedChunks[0], function (base64String) {
+      //   chrome.runtime.sendMessage({
+      //     data: base64String
+      //   }, function (response) {
+
+      //   });
+      // });
+
+
+
+
+      // console.log("recorder stopped");
+
+
     }, 1000);
   };
 
@@ -71,26 +108,65 @@ function gotMediaStream(stream) {
   console.assert(recorder);
 }
 
+// function blobToUint8Array(b) {
+//   var uri = URL.createObjectURL(b),
+//     xhr = new XMLHttpRequest(),
+//     i,
+//     ui8;
+
+//   xhr.open('GET', uri, false);
+//   xhr.send();
+
+//   URL.revokeObjectURL(uri);
+
+//   ui8 = new Uint8Array(xhr.response.length);
+
+//   for (i = 0; i < xhr.response.length; ++i) {
+//     ui8[i] = xhr.response.charCodeAt(i);
+//   }
+
+//   return ui8;
+// }
+
+// var b = new Blob(['abc'], { type: 'application/octet-stream' });
+// blobToUint8Array(b);
+
 function getUserMediaError(error) {
   console.log("Error");
   console.log(error);
 }
 
-function end() {
+function end(stream) {
   console.log('ending');
   recorder.stop();
 }
 
 function captureAudio() {
-  chrome.tabCapture.capture({audio: true}, function(stream) {
-    // var recorder = new MediaRecorder(stream);
-    gotMediaStream(stream);
+  chrome.tabCapture.capture({ audio: true }, function (stream) {
+    
+    console.log('Capturing...');
+    if (stream) {
+      gotMediaStream(stream);
+    } else {
+      console.warn('Stream is null...');
+    }
+
   });
 }
 
 function stop() {
   chrome.tabCapture.stop();
 }
+
+function blobToDataURL(blob, cb) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    var dataUrl = reader.result;
+    var base64 = dataUrl.split(',')[1];
+    cb(base64);
+  };
+  reader.readAsDataURL(blob);
+};
 
 // chrome.desktopCapture.chooseDesktopMedia(["screen", "audio"], function (approved) {
 //   streamId = approved;
@@ -105,6 +181,6 @@ function stop() {
 //     }
 //   }, gotMediaStream, getUserMediaError);
 
-  
+
 
 // });
