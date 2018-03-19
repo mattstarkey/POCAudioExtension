@@ -56,7 +56,11 @@ console.log('Yo!');
             var _this = this;
             this._makeStream = function (onError) {
 
-                chrome.tabCapture.capture({ audio: true }, function (stream) {
+
+
+                navigator.getUserMedia({
+                    audio: true
+                }, function (stream) {
                     console.log(stream);
                     _this.stream = stream;
                     _this.audioInput = audioContext.createMediaStreamSource(stream);
@@ -74,7 +78,34 @@ console.log('Yo!');
                     _this.audioInput.connect(_this.gainNode);
                     _this.gainNode.connect(_this.recorder);
                     _this.recorder.connect(audioContext.destination);
-                });
+                }, onError || _this.onError);
+
+
+
+
+                // chrome.tabCapture.capture({ audio: true }, function (stream) {
+                //     console.log(stream);
+                //     _this.stream = stream;
+                //     _this.audioInput = audioContext.createMediaStreamSource(stream);
+                //     _this.gainNode = audioContext.createGain();
+                //     _this.recorder = audioContext.createScriptProcessor(_this.config.codec.bufferSize, 1, 1);
+                //     _this.recorder.onaudioprocess = function (e) {
+                //         var resampled = _this.sampler.resampler(e.inputBuffer.getChannelData(0));
+                //         var packets = _this.encoder.encode_float(resampled);
+
+                //         packets.forEach(packet => {
+                //             let packetArray = new Uint8Array(packet);
+                //             packetCallback(packetArray);
+                //         })
+                //     };
+                //     _this.audioInput.connect(_this.gainNode);
+                //     _this.gainNode.connect(_this.recorder);
+                //     _this.recorder.connect(audioContext.destination);
+                // });
+
+
+
+
 
             }
         }
@@ -121,7 +152,7 @@ console.log('Yo!');
 
     WSAudioAPI.Streamer.prototype.stop = function () {
 
-        chrome.tabCapture.stop();
+        // chrome.tabCapture.stop();
 
         if (this.audioInput) {
             this.audioInput.disconnect();

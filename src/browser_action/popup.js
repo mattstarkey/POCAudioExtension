@@ -25,20 +25,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     console.log(message.data);
+
+    var outputDiv = document.getElementById('output');
+    outputDiv.textContent = message.data.msg;
+
+
     // console.log(sender);
 
-    console.log('Trying...');
-    dataURLtoBlob(message.data.dataUri, function (blob) {
-        console.log('This should be a blob now...');
-        console.log(blob);
+    // console.log('Trying...');
+    // dataURLtoBlob(message.data.dataUri, function (blob) {
+    //     console.log('This should be a blob now...');
+    //     console.log(blob);
 
-        var audio = document.createElement('audio');
-        audio.controls = true;
-        var audioURL = window.URL.createObjectURL(blob);
-        audio.src = audioURL;
+    //     var audio = document.createElement('audio');
+    //     audio.controls = true;
+    //     var audioURL = window.URL.createObjectURL(blob);
+    //     audio.src = audioURL;
 
-        document.getElementsByTagName('body')[0].appendChild(audio);
-    });
+    //     document.getElementsByTagName('body')[0].appendChild(audio);
+    // });
 
 
     // var blob = new Blob([message.data.dataUri], { type: message.data.type });

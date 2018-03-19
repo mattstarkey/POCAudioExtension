@@ -1,8 +1,3 @@
-// if you checked "fancy-settings" in extensionizr.com, uncomment this lines
-
-// var settings = new Store("settings", {
-//     "sample_setting": "This is how you use Store.js to remember values"
-// });
 
 var recordedChunks = [];
 var numrecordedChunks = 0;
@@ -19,8 +14,6 @@ var config = {
     bufferSize: 2048 //2048//4096
   }
 };
-
-
 
 //example of using a message handler from the inject scripts
 chrome.extension.onMessage.addListener(
@@ -57,13 +50,7 @@ function gotMediaStream(stream) {
     });
   });
 
-
-
-  console.log("Trying");
   recorder = new MediaRecorder(stream);
-  console.log(recorder);
-
-  console.log(recorder.state);
 
   recorder.ondataavailable = function (event) {
     console.log('On Data Available');
@@ -83,9 +70,6 @@ function gotMediaStream(stream) {
 
       reader.addEventListener("load", function () {
 
-        console.log('DATA URI:::');
-        console.log(reader.result);
-
         chrome.runtime.sendMessage({
           data: {
             dataUri: reader.result,
@@ -98,43 +82,21 @@ function gotMediaStream(stream) {
       }, false);
 
       reader.readAsDataURL(recordedChunks[0]);
-
-
-      // blobToDataURL(recordedChunks[0], function (base64String) {
-      //   chrome.runtime.sendMessage({
-      //     data: base64String
-      //   }, function (response) {
-
-      //   });
-      // });
-
-
-
-
-      // console.log("recorder stopped");
-
-
     }, 1000);
   };
 
   recorder.start();
-
-  console.log(recorder.state);
-
-  console.log("Recorder is started");
-  console.assert(recorder);
 }
 
 function connectToChannel() {
-  let id = this.speakerId;
-  let idArray = intToByteArray(id, 2);
-  let packetId = new Uint8Array([1, idArray[0], idArray[1]]);
-
   var uid = "TXCVCRIiUoWGcTS6EfOcNLncSfr1";
   var channelKey = "-L6LGrFG_vno0CKKDmJ4&EIO=3";
 
+  let id = 4;
+  let idArray = intToByteArray(id, 2);
+  let packetId = new Uint8Array([1, idArray[0], idArray[1]]);
+
   socket = io.connect(`https://websock.italkdevice.com:3030`, {
-    // query: `uid=${uid}&key=${channelKey}`
     query: `uid=${uid}&key=${channelKey}`
   });
 
@@ -148,8 +110,20 @@ function connectToChannel() {
     if (socket.connected) {
       socket.emit('packet', { packet: outArray.buffer });
     }
+    console.log(outArray.buffer);
     // this.userSpeaking = this.me;
-    // console.log(`Packet to send from ${id}, with ${outArray.length} bytes`);
+
+    var msg = `Packet to send from ${id}, with ${outArray.length} bytes`;
+
+    chrome.runtime.sendMessage({
+      data: {
+        msg
+      }
+    }, function (response) {
+      // console.log(response);
+    });
+
+    console.log(msg);
   });
 }
 
@@ -159,34 +133,21 @@ function getUserMediaError(error) {
 }
 
 function end(stream) {
+  streamer.stop();
+  player.start();
   console.log('ending');
-  recorder.stop();
 }
 
 function captureAudio() {
-
   streamer.start();
   player.stop();
-
-
-  // chrome.tabCapture.capture({ audio: true }, function (stream) {
-  //   console.log('Capturing...');
-  //   if (stream) {
-  //     console.log('Stream');
-  //     console.log(stream);
-  //     // gotMediaStream(stream);
-  //   } else {
-  //     console.warn('Stream is null...');
-  //   }
-  // });
-
+  recording = true;
 }
 
 function stop() {
   streamer.stop();
   player.start();
-
-  // chrome.tabCapture.stop();
+  recording = false;
 }
 
 function blobToDataURL(blob, cb) {
@@ -213,21 +174,3 @@ function intToByteArray(num, length) {
 
   return result;
 }
-
-
-// chrome.desktopCapture.chooseDesktopMedia(["screen", "audio"], function (approved) {
-//   streamId = approved;
-//   console.log(streamId);
-
-//   navigator.webkitGetUserMedia({
-//     audio: {
-//       mandatory: {
-//         chromeMediaSource: "system",
-//         chromeMediaSourceId: streamId
-//       }
-//     }
-//   }, gotMediaStream, getUserMediaError);
-
-
-
-// });
