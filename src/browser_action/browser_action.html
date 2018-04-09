@@ -2,9 +2,20 @@
 <style type="text/css">
 	#mainPopup {
 		padding: 10px;
-		height: 200px;
-		width: 400px;
+		height: 100%;
 		font-family: Helvetica, Ubuntu, Arial, sans-serif;
+		display: flex;
+		padding: 0;
+	}
+
+	body {
+		margin: 0;
+	}
+
+	html,
+	body {
+		width: 800px;
+		height: 400px;
 	}
 
 	h1 {
@@ -13,7 +24,7 @@
 
 	.button {
 		padding: 5px 10px;
-		box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
+		box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 2px 0 rgba(0, 0, 0, 0.12);
 		color: #fff;
 		cursor: pointer;
 	}
@@ -23,28 +34,702 @@
 	}
 
 	.primary {
-		background-color: #1e88e5;
+		/* background-color: #1e88e5; */
 	}
 
 	.dark {
-		background-color: #343434;
+		/* background-color: #343434; */
 	}
 
 	#output {
 		position: absolute;
 		bottom: 14px;
 	}
+
+	.col {
+		/* border-right: 1px solid #efefef; */
+		box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.14), 0 1px 1px -1px rgba(0, 0, 0, 0.2), 0 1px 2px 0 rgba(0, 0, 0, 0.12);
+	}
+
+	.col1 {
+		flex: 1;
+	}
+
+	.col2 {
+		flex: 2;
+	}
+
+	.col3 {
+		flex: 3;
+	}
+
+	.col4 {
+		flex: 4;
+	}
+
+	.item {
+		padding: 10px 10px;
+		border-bottom: 1px solid #efefef;
+		box-sizing: border-box;
+	}
+
+	.item:active {
+		background-color: #144d80 !important;
+		color: #fff !important;
+	}
+
+	.item.true {
+		border-right: 5px solid #46d646;
+	}
+
+	.item.false {
+		border-right: 5px solid #f54337;
+	}
+
+	.item:hover {
+		background-color: #d4d4d4;
+		color: #000;
+	}
+
+	p.heading {
+		/* color: #313131; */
+		color: #fff;
+		background-color: #1e88e5;
+		margin-top: 0;
+		padding: 10px;
+		margin-bottom: 0;
+	}
+
+	.bg {
+		background-color: #1e88e5;
+	}
+
+	.hide {
+		display: none !important;
+	}
+
+	.talkButtons {
+		display: flex;
+		flex-direction: column;
+		max-width: 75px;
+	}
+
+	.talkButtons .button {
+		flex: 1;
+		position: relative;
+		text-align: center;
+	}
+
+	.closeChannel {
+		width: 30px;
+		top: 19px;
+		display: inline-block;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		margin: auto;
+	}
+
+	.record {
+		width: 20px;
+		background-color: #f54337;
+		border-radius: 50%;
+		height: 20px;
+		display: inline-block;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		margin: auto;
+	}
+
+	.stop {
+		width: 20px;
+		background-color: #343434;
+		height: 20px;
+		display: inline-block;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		margin: auto;
+	}
+
+	.soundWave {
+		background: #f7f7f7;
+		width: 120px;
+		height: 120px;
+		border-radius: 50%;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		margin: auto;
+		text-align: center;
+	}
+
+	#wave path {
+		fill: #3f51b5;
+	}
+
+	#wave.notRecording path {
+		animation: none;
+		fill: #ccc;
+	}
+
+	#wave {
+		height: 100px;
+		width: 100px;
+		fill: #fff;
+		position: relative;
+		top: 9px;
+	}
+
+	#Line_1 {
+		animation: pulse 1s infinite;
+		animation-delay: .15s;
+	}
+
+	#Line_2 {
+		animation: pulse 1s infinite;
+		animation-delay: .30s;
+	}
+
+	#Line_3 {
+		animation: pulse 1s infinite;
+		animation-delay: .45s;
+	}
+
+	#Line_4 {
+		animation: pulse 1s infinite;
+		animation-delay: .60s;
+	}
+
+	#Line_5 {
+		animation: pulse 1s infinite;
+		animation-delay: .75s;
+	}
+
+	#Line_6 {
+		animation: pulse 1s infinite;
+		animation-delay: .90s;
+	}
+
+	#Line_7 {
+		animation: pulse 1s infinite;
+		animation-delay: 1.05s;
+	}
+
+	#Line_8 {
+		animation: pulse 1s infinite;
+		animation-delay: 1.20s;
+	}
+
+	#Line_9 {
+		animation: pulse 1s infinite;
+		animation-delay: 1.35s;
+	}
+
+	@keyframes pulse {
+		0% {
+			transform: scaleY(1);
+			transform-origin: 50% 50%;
+		}
+
+		50% {
+			transform: scaleY(.7);
+			transform-origin: 50% 50%;
+		}
+
+		100% {
+			transform: scaleY(1);
+			transform-origin: 50% 50%;
+		}
+	}
+
+	.max {
+		width: 100%;
+		display: flex;
+	}
+
+	.min {
+		width: 100%;
+		display: flex;
+	}
+
+	.menu {
+		max-width: 20%;
+	}
+
+	.speaking {
+		flex: 6;
+		background-color: #1e88e5;
+		color: #fff;
+	}
+
+	.speaking p {
+		padding: 0px 10px;
+		color: #fff;
+		font-size: 13px;
+	}
+
+	.minButton {
+		flex: 1;
+		border-left: 1px solid #efefef;
+		position: relative;
+	}
+
+	body.minimized,
+	html.minimized {
+		height: 40px;
+	}
+
+	.min {
+		/* background-color: #ececec; */
+	}
+
+	.minButton .record,
+	.minButton .stop {
+		width: 20px;
+		height: 20px
+	}
+
+	.maxMin {
+		font-size: 1.9rem;
+		text-align: center;
+	}
+
+	.minButtonMinus {
+		font-size: 3rem;
+		color: black;
+		text-align: center;
+		line-height: 3.9rem;
+		cursor: pointer;
+	}
+
+	.minus {
+		width: 20px;
+		display: inline-block;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		margin: auto;
+		background: #797979;
+		height: 6px;
+	}
+
+	.on {
+		background-color: rgb(58, 184, 58);
+	}
+
+	.maxMin,
+	.recordMin {
+		cursor: pointer;
+	}
+
+	.rel {
+		position: relative;
+	}
+
+	.userSpeaking {
+		margin: 0;
+		text-align: center;
+		background: #7fde7f;
+		padding: 4px;
+		color: #fff;
+		position: absolute;
+		width: 96%;
+	}
+
+	.colHeight {
+		overflow: scroll;
+		height: 100%;
+	}
+
+	.blanket {
+		width: 100%;
+		height: 100%;
+		background: #fff;
+		position: absolute;
+		z-index: 1000000;
+	}
+
+	.blanket .loader {
+		position: absolute;
+		width: 30%;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		margin: auto;
+		z-index: 10;
+	}
+
+	.info {
+		background: #1e88e5;
+		color: #fff;
+		padding: 3px;
+		text-align: center;
+		width: 100%;
+		position: absolute;
+		bottom: 0;
+		margin: 0;
+		z-index: 9;
+	}
+
+	.loginForm {
+		width: 100%;
+		height: 100%;
+		background: #fff;
+		position: absolute;
+		text-align: center;
+		padding: 10% 0;
+	}
+
+	.loginForm input {
+		display: block;
+		width: 50%;
+		margin: auto;
+		padding: 10px;
+		border: 1px solid #d4d4d4;
+	}
+
+	.loginForm input.first {
+		margin-bottom: -1px;
+		border-top-left-radius: 3px;
+		border-top-right-radius: 3px;
+	}
+
+	.loginForm input.last {
+		/* border-bottom-left-radius: 3px;
+		border-bottom-right-radius: 3px; */
+	}
+
+	.loginForm button {
+		display: block;
+		margin: auto;
+		width: 422px;
+		padding: 11px;
+		background: #1e88e5;
+		border: none;
+		border-bottom-left-radius: 3px;
+		border-bottom-right-radius: 3px;
+		color: #fff;
+		cursor: pointer;
+	}
+
+	.loginForm button:disabled {
+		background: #ccc;
+	}
+
+	.loginForm img {
+		width: 35%;
+		margin-bottom: 20px;
+	}
+
+	::-webkit-scrollbar {
+		width: 0px
+	}
+
+	.item {
+		cursor: pointer;
+	}
+
+	.item.selected {
+		background: #6db4f3;
+		color: #fff;
+		border: 1px solid #fff;
+	}
+
+	.item.message {
+		cursor: pointer;
+		text-overflow: ellipsis;
+		overflow: hidden;
+		white-space: nowrap;
+		color: #8a8a8a;
+	}
+
+	#privateCall {
+		background: #23cc76;
+		color: #fff;
+		cursor: pointer;
+		padding: 5px 7px;
+		float: right;
+		margin-top: -5px;
+		border-radius: 2px;
+		cursor: pointer;
+	}
+
+	#privateCall:active {
+		background: #0fad5c;
+	}
+
+	#privateCall.end {
+		background: #d64149;
+	}
+
+	#privateCall.end:active {
+		background: #aa1d24;
+	}
+
+	.aMessage {
+		padding: 8px;
+	}
+
+	#messageBody {
+		background: #deffe1;
+		padding: 5px;
+		border-radius: 3px;
+		color: #484848;
+	}
+
+	#messageDate {
+		color: #8c8c8c;
+		text-align: center;
+	}
+
+	.messageModal {
+		position: fixed;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		right: 0;
+		width: 50%;
+		margin: auto;
+		background: #fff;
+		box-shadow: 0px 0px 10px #888888;
+		height: 60%;
+		border-radius: 3px;
+		overflow: hidden;
+	}
+
+	.opacity50 {
+		background: rgba(255, 255, 255, 0.6);
+	}
+
+	#messageText {
+		width: 97%;
+		height: 50%;
+		margin: auto;
+		display: block;
+		box-sizing: border-box;
+		border-radius: 3PX;
+		border: 1px solid #e4e4e4;
+		resize: none;
+		box-shadow: inset 0px 1px 5px #e8e8e8;
+		margin-bottom: 5px;
+	}
+
+	#sendButton {
+		background: #1e88e5;
+		text-align: center;
+		padding: 10px;
+		border-radius: 3px;
+		color: #fff;
+		cursor: pointer;
+	}
+
+	#sendButton:active {
+		background: #0e6dc0;
+	}
+
+	#toList .recipient {
+		background: #63d832;
+		padding: 4px 9px;
+		margin: 5px;
+		display: inline-block;
+		color: #fff;
+		border-radius: 3px;
+	}
+
+	#toList .closeClick {
+		margin-left: 7px;
+		color: #409c51;
+		cursor: pointer;
+	}
+
+	#tolist {
+		margin-bottom: 6px;
+	}
+
+	.recips {
+		margin: 5px 6px 2px 6px;
+		display: block;
+		color: #676767;
+	}
+
+	.messageModal h3 {
+		background: #1e88e5;
+		color: #fff;
+		padding: 6px;
+		margin: 0;
+		font-weight: normal;
+	}
+
+	textarea:focus {
+		outline: none !important;
+		border: 1px solid red;
+		box-shadow: 0 0 10px #719ECE;
+	}
+
+	#sendAMessage, .sendAMessage {
+		position: absolute;
+		bottom: 0;
+		background: #23cc76;
+		color: #fff;
+		padding: 5px 7px;
+		border-radius: 2px;
+		cursor: pointer;
+		display: block;
+		flex: 1;
+		width: 227px;
+		text-align: center;
+	}
+
+	.sendAMessage {
+		width: 307px;
+	}
+
+	#closeMessageModal {
+		width: 20px;
+		float: right;
+		cursor: pointer;
+	}
 </style>
 
+<script src="https://www.gstatic.com/firebasejs/4.10.1/firebase.js"></script>
 <script src="popup.js"></script>
-
-<!-- <script src="src/permission/permission.js"></script> -->
 
 <div id="mainPopup">
 
-	<a class="button primary" id="start">Start</a>
-	<a class="button dark" id="stop">Stop</a>
+	<div class="blanket">
+		<img class="loader" src="/icons/Eclipse-1s-200px.svg" alt="">
+	</div>
 
-	<div id="output"></div>
+	<div class="loginForm">
+		<img src="/icons/iTALKPTT-Logo.jpg" alt="">
+		<input type="text" id="user" class="first" placeholder="username">
+		<input type="password" id="pass" class="last" placeholder="password">
+		<button id="signIn" disabled>Sign In</button>
+	</div>
+
+	<div class="min hide">
+		<div class="speaking">
+			<p class="userSpeakingMini">Matthew is speaking.</p>
+		</div>
+		<div class="minButton recordMin">
+			<span class="record" id="startMini"></span>
+		</div>
+		<div class="minButton maxMin">
+			+
+		</div>
+	</div>
+
+	<div class="max">
+		<div id="output"></div>
+
+		<div class="blanket opacity50 hide" id="messageBlanket">
+			<div class="messageModal">
+				<h3>New Message
+					<img id="closeMessageModal" src="/icons/close-window.png" alt="Close">
+				</h3>
+				<div>
+					<span class="recips">Recipients: </span>
+					<div id="toList"></div>
+				</div>
+
+				<textarea id="messageText" placeholder="Type a message"></textarea>
+				<div id="sendButton">Send</div>
+			</div>
+		</div>
+
+		<div class="menu col col2">
+			<p class="heading">Menu</p>
+			<div class="item" id="closeItem">Select Channel</div>
+			<div class="item" id="messageItem">Messages</div>
+		</div>
+
+		<div class="col col2 chans colHeight">
+			<p class="heading">Channels</p>
+			<div class="channels"></div>
+		</div>
+
+		<div class="inbox col col1 hide messaging" id="inbox">
+			<p class="heading">Messages</p>
+			<div class="item" id="viewInbox">Inbox</div>
+			<div class="item" id="viewSent">Sent</div>
+		</div>
+
+		<div class="messageBox col col3 hide colHeight messaging" id="messagesList">
+			<p class="heading" id="inboxHeading">Inbox</p>
+			<div class="msgs" id="msgs">
+
+			</div>
+		</div>
+
+		<div class="messageBox col col4 hide colHeight messaging" id="messageBox">
+			<p class="heading" id="messageHeading"></p>
+			<div class="aMessage">
+				<p id="messageDate"></p>
+				<p id="messageBody"></p>
+			</div>
+			<span class="sendAMessage" class="hide">Send Message</span>
+		</div>
+
+		<div class="col col4 channel hide rel voice">
+			<p class="heading channelHeading"></p>
+			<p class="userSpeaking hide"></p>
+			<div class="soundWave">
+				<svg id="wave" class="notRecording" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 38.05">
+					<title>Audio Wave</title>
+					<path id="Line_1" data-name="Line 1" d="M0.91,15L0.78,15A1,1,0,0,0,0,16v6a1,1,0,1,0,2,0s0,0,0,0V16a1,1,0,0,0-1-1H0.91Z" />
+					<path id="Line_2" data-name="Line 2" d="M6.91,9L6.78,9A1,1,0,0,0,6,10V28a1,1,0,1,0,2,0s0,0,0,0V10A1,1,0,0,0,7,9H6.91Z" />
+					<path id="Line_3" data-name="Line 3" d="M12.91,0L12.78,0A1,1,0,0,0,12,1V37a1,1,0,1,0,2,0s0,0,0,0V1a1,1,0,0,0-1-1H12.91Z"
+					/>
+					<path id="Line_4" data-name="Line 4" d="M18.91,10l-0.12,0A1,1,0,0,0,18,11V27a1,1,0,1,0,2,0s0,0,0,0V11a1,1,0,0,0-1-1H18.91Z"
+					/>
+					<path id="Line_5" data-name="Line 5" d="M24.91,15l-0.12,0A1,1,0,0,0,24,16v6a1,1,0,0,0,2,0s0,0,0,0V16a1,1,0,0,0-1-1H24.91Z"
+					/>
+					<path id="Line_6" data-name="Line 6" d="M30.91,10l-0.12,0A1,1,0,0,0,30,11V27a1,1,0,1,0,2,0s0,0,0,0V11a1,1,0,0,0-1-1H30.91Z"
+					/>
+					<path id="Line_7" data-name="Line 7" d="M36.91,0L36.78,0A1,1,0,0,0,36,1V37a1,1,0,1,0,2,0s0,0,0,0V1a1,1,0,0,0-1-1H36.91Z"
+					/>
+					<path id="Line_8" data-name="Line 8" d="M42.91,9L42.78,9A1,1,0,0,0,42,10V28a1,1,0,1,0,2,0s0,0,0,0V10a1,1,0,0,0-1-1H42.91Z"
+					/>
+					<path id="Line_9" data-name="Line 9" d="M48.91,15l-0.12,0A1,1,0,0,0,48,16v6a1,1,0,1,0,2,0s0,0,0,0V16a1,1,0,0,0-1-1H48.91Z"
+					/>
+				</svg>
+			</div>
+		</div>
+
+		<div class="col col3 conts hide colHeight voice">
+			<p class="heading">Contacts
+				<span id="privateCall" class="hide">Create Private Call</span>
+			</p>
+			<div class="contacts"></div>
+			<span id="sendAMessage" class="hide">Send Message</span>
+		</div>
+
+		<div class="col col1 talkButtons hide voice">
+			<a class="button primary" id="start">
+				<span class="record" id="startIcon"></span>
+			</a>
+			<a class="button primary" id="close">
+				<img src="../../icons/close-window.png" class="closeChannel" alt="">
+			</a>
+			<a class="button dark minButtonMinus" id="minimize">
+				<div class="minus"></div>
+			</a>
+		</div>
+	</div>
+
+	<p class="info hide">Please select a channel.</p>
 
 </div>

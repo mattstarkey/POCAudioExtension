@@ -1,9 +1,9 @@
 {
-  "name": "CHANGE THIS : Extension boilerplate",
+  "name": "iTalk Chrome Extension.",
   "version": "0.0.1",
   "manifest_version": 2,
-  "description": "This extension was created with the awesome extensionizr.com",
-  "homepage_url": "http://extensionizr.com",
+  "description": "Browser extension to use iTalk Services.",
+  "homepage_url": "http://www.italkptt.com/",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -32,6 +32,7 @@
     "tabCapture",
     "desktopCapture"
   ],
+  "content_security_policy": "script-src 'self' https://cdn.firebase.com https://*.firebaseio.com https://www.gstatic.com; object-src 'self'",
   "content_scripts": [
     {
       "matches": [

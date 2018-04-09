@@ -4,6 +4,8 @@ var numrecordedChunks = 0;
 var streamer;
 var player;
 var socket;
+var currentSpeakerId = -1;
+var streamerCreated = false;
 
 var config = {
   codec: {
@@ -25,8 +27,6 @@ chrome.extension.onMessage.addListener(
 
 chrome.runtime.onInstalled.addListener((details) => {
 
-  connectToChannel();
-
   if (details.reason.search(/install/g) === -1) {
     return
   }
@@ -38,67 +38,60 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 var streamId;
-
-function gotMediaStream(stream) {
-
-  console.log(stream);
-
-  stream.getTracks().forEach(function (track) {
-    console.log(track);
-    track.addEventListener('ended', function () {
-      console.log(stream.id, 'track ended', track.kind, track.id);
-    });
-  });
-
-  recorder = new MediaRecorder(stream);
-
-  recorder.ondataavailable = function (event) {
-    console.log('On Data Available');
-    if (event.data && event.data.size > 0) {
-      recordedChunks.push(event.data);
-      numrecordedChunks += event.data.byteLength;
-    }
-  };
-
-  recorder.onstop = function (data) {
-    console.log('On Stop');
-    stream.getTracks()[0].stop();
-    setTimeout(function () {
-      console.log(recordedChunks);
-
-      var reader = new FileReader();
-
-      reader.addEventListener("load", function () {
-
-        chrome.runtime.sendMessage({
-          data: {
-            dataUri: reader.result,
-            type: recordedChunks[0].type
-          }
-        }, function (response) {
-          console.log(response);
-        });
-
-      }, false);
-
-      reader.readAsDataURL(recordedChunks[0]);
-    }, 1000);
-  };
-
-  recorder.start();
+var recording = false;
+var started = false;
+var currentChannel = {
+  key: '',
+  connected: false,
+  speaking: false,
+  minimized: false,
+  name: '',
+  loggedIn : false,
+  myPacketId: 0
 }
 
-function connectToChannel() {
-  var uid = "TXCVCRIiUoWGcTS6EfOcNLncSfr1";
-  var channelKey = "-L6LGrFG_vno0CKKDmJ4&EIO=3";
+function disconnectFromChannel() {
+  if (socket.connected) {
+    socket.disconnect();
+  }
+  player.stop();
+  // if (started) {
+  //   streamer.disconnect();
+  // }
+  player = null;
+  streamer = null;
+  currentChannel.speaking = false;
+  currentChannel.connected = false;
+  currentChannel.key = '';
+}
 
-  let id = 4;
+function connectToChannel(channel, uid) {
+
+  if (socket != undefined) {
+    if (socket.connected) {
+      console.log('Already Connected...');
+      return;
+    }
+  }
+
+  console.log('Connecting');
+
+  let id = currentChannel.myPacketId;
   let idArray = intToByteArray(id, 2);
   let packetId = new Uint8Array([1, idArray[0], idArray[1]]);
 
-  socket = io.connect(`https://websock.italkdevice.com:3030`, {
-    query: `uid=${uid}&key=${channelKey}`
+  let host = `https://${channel.host}`;
+  let port = channel.port;
+  if (port == undefined) {
+    port = '3030'
+  }
+
+  socket = io.connect(`${host}:3030`, {
+    query: `uid=${uid}&key=${channel.channelKey}`
   });
+
+  currentChannel.key = channel.channelKey;
+  currentChannel.connected = true;
 
   player = new WSAudioAPI.Player(config);
 
@@ -107,58 +100,89 @@ function connectToChannel() {
     outArray.set(packetId, 0);
     outArray.set(packet, packetId.length);
 
-    if (socket.connected) {
+    if (socket.connected && recording) {
       socket.emit('packet', { packet: outArray.buffer });
     }
-    console.log(outArray.buffer);
     // this.userSpeaking = this.me;
 
     var msg = `Packet to send from ${id}, with ${outArray.length} bytes`;
+  });
 
+  player.start();
+  // streamer.start();
+
+  //Player
+  socket.on('packet', function (msg) {
+    if (!recording) {
+      var message = new Uint8Array(msg.data);
+
+      // Match this to id in /channels/{channelKey}/users/ list to know who is talking
+      let id = message[1] * 256 + message[2];
+      // console.log(`Packet from ${id}, with ${message.length} bytes`);
+
+      showUserSpeaking(id);
+
+      if (player) {
+        player.onPacket(message.slice(3, message.length));
+      }
+    }
+  });
+
+  socket.on('disconnect', (reason) => {
+    currentChannel.speaking = false;
+    currentChannel.connected = false;
+    currentChannel.key = '';
+
+    try {
+      streamer.disconnect();
+    } catch (err) {
+    }
+
+    console.log('Disconnected...');
     chrome.runtime.sendMessage({
       data: {
-        msg
+        reason
       }
     }, function (response) {
-      // console.log(response);
     });
-
-    console.log(msg);
   });
 }
 
+function showUserSpeaking(id) {
+
+  if (currentSpeakerId != id) {
+    chrome.runtime.sendMessage({
+      data: {
+        showUserSpeaking: true,
+        id: id
+      }
+    });
+  }
+  currentSpeakerId = id;
+
+}
+
 function getUserMediaError(error) {
-  console.log("Error");
-  console.log(error);
+  console.error(error);
 }
 
-function end(stream) {
-  streamer.stop();
-  player.start();
-  console.log('ending');
-}
-
-function captureAudio() {
-  streamer.start();
-  player.stop();
+function start() {
   recording = true;
+  if (started) {
+    streamer.unMute();
+  } else {
+    streamer.start();
+  }
+  started = true;
+  currentChannel.speaking = true;
 }
 
 function stop() {
-  streamer.stop();
-  player.start();
+  streamer.mute();
+  currentChannel.speaking = false;
+  // player.start();
   recording = false;
 }
-
-function blobToDataURL(blob, cb) {
-  var reader = new FileReader();
-  reader.onload = function () {
-    var dataUrl = reader.result;
-    var base64 = dataUrl.split(',')[1];
-    cb(base64);
-  };
-  reader.readAsDataURL(blob);
-};
 
 function intToByteArray(num, length) {
   let result = [];

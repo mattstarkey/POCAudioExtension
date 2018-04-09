@@ -1,111 +1,760 @@
+var config = {
+    apiKey: "AIzaSyCApdPRm2-ihXXVKBV7Ig0KTL_FDfKVACQ",
+    authDomain: "pttapp-5a5d5.firebaseapp.com",
+    databaseURL: "https://pttapp-5a5d5.firebaseio.com",
+    projectId: "pttapp-5a5d5",
+    storageBucket: "pttapp-5a5d5.appspot.com",
+    messagingSenderId: "77576022182"
+};
+firebase.initializeApp(config);
+
+var database = firebase.database();
+var uid;
+var speaking = false;
+var channelKey;
+var channelName;
+var usersObject = {}
+var lastMessageDate = new Date();
+var background;
+var DEBUG = false;
+var loggedIn = false;
+var selectedForPrivateCall = [];
+var userList = [];
+var firebaseIdToken;
+var me;
+var currentPrivateChannelKey = "";
+var inPrivate = false;
+var inChannel = false;
+var channelUsersSubscription;
+var messagesObject = {};
+var messagesRef;
+var sendTo = [];
+var messageText = "";
+var myPacketId;
+
+function showInfo(msg) {
+    document.querySelector('.info').classList.remove('hide');
+    document.querySelector('.info').innerHTML = msg;
+}
+
+function hideInfo() {
+    document.querySelector('.info').classList.add('hide');
+}
+
+function showLogin() {
+    document.querySelector('.loginForm').classList.remove('hide');
+}
+
+function hideLogin() {
+    document.querySelector('.loginForm').classList.add('hide');
+}
+
+function showLoader() {
+    document.querySelector('.blanket').classList.remove('hide');
+}
+
+function hideLoader() {
+    document.querySelector('.blanket').classList.add('hide');
+}
+
+chrome.runtime.getBackgroundPage(function (page) {
+    background = page;
+
+    if (background.currentChannel.connected) {
+        document.querySelector('.loginForm').classList.add('hide');
+        AuthAndInit(background.user, background.pass);
+    } else {
+        // AuthAndInit('mattstarkey@me.com', 'hamburgers');
+        hideLoader();
+    }
+
+    if (background.currentChannel.loggedIn) {
+        showLoader();
+        AuthAndInit(background.user, background.pass);
+    }
+
+});
+
+function authorize() {
+    showLoader();
+    hideLogin();
+    AuthAndInit(document.getElementById('user').value, document.getElementById('pass').value)
+}
+
+function AuthAndInit(username, password) {
+    firebase.auth().signInWithEmailAndPassword(username, password).then(async function (res) {
+
+        firebaseIdToken = await firebase.auth().currentUser.getIdToken();
+        listenForPrivateChannel(res.uid);
+        createMessageRef(res.uid);
+
+        var meRef = firebase.database().ref(`users/${res.uid}`);
+        meRef.on('value', function (snapshot) {
+            me = snapshot.val();
+        });
+
+
+        hideLogin();
+        hideLoader();
+
+        background.user = username;
+        background.pass = password;
+        background.currentChannel.loggedIn = true;
+
+        speaking = background.currentChannel.speaking;
+
+        showInfo("Please select a channel.");
+        if (background.currentChannel.connected) {
+            hideInfo();
+            if (background.currentChannel.minimized) {
+                minimize();
+                document.querySelector('.userSpeakingMini').innerHTML = `Connected to ${background.currentChannel.name}`;
+                channelName = background.currentChannel.name;
+            } else {
+                showChannelInfo(background.currentChannel.key, res.uid, background.currentChannel.name);
+            }
+            updateSpeakingUi(background.currentChannel.speaking);
+        } else {
+            showInfo("Please select a channel.");
+        }
+
+        uid = res.uid;
+
+        var channel = firebase.database().ref(`users/${res.uid}/channels`);
+        channel.on('value', function (snapshot) {
+            showChannels(snapshot.val());
+        });
+
+    }).catch(function (error) {
+        // Handle Errors here.
+        showInfo(error.message);
+        showLogin();
+        hideLoader();
+        var errorCode = error.code;
+        var errorMessage = error.message;
+        // ...
+    });
+}
+
+function displayChannel(channel, channelContainer) {
+    let chan = document.createElement('div');
+    chan.classList = 'item';
+    chan.id = channel.channelKey;
+    chan.textContent = channel.channelName;
+    channelContainer.appendChild(chan);
+    chan.addEventListener('click', openChannel);
+}
+
+
+function showChannels(channels) {
+    var channelContainer = document.querySelector('.channels');
+    channelContainer.innerHTML = "";
+
+    if (Array.isArray(channels)) {
+        for (let i = 0; i < channels.length; i++) {
+            const channel = channels[i];
+            if (channel != undefined) {
+                displayChannel(channel, channelContainer);
+            }
+        }
+    } else {
+        for (const key in channels) {
+            if (channels.hasOwnProperty(key)) {
+                const chann = channels[key];
+                if (chann != undefined) {
+                    displayChannel(chann, channelContainer);
+                }
+            }
+        }
+    }
+
+
+}
+
+function updateSpeakingUi(speaking) {
+    if (speaking) {
+        document.querySelector('#wave').classList.remove('notRecording');
+        document.querySelector('#startMini').classList.add('on');
+        document.querySelector('#startIcon').classList.add('on');
+    } else {
+        document.querySelector('#wave').classList.add('notRecording');
+        document.querySelector('#startMini').classList.remove('on');
+        document.querySelector('#startIcon').classList.remove('on');
+    }
+}
+
+function showUsers(users) {
+    usersObject = users;
+    background.currentChannel.myPacketId = usersObject[uid].id;
+    var contactsContainer = document.querySelector('.contacts');
+    document.querySelector('.conts').classList.remove('hide');
+    document.querySelector('.talkButtons').classList.remove('hide');
+    document.querySelector('.channel').classList.remove('hide');
+    contactsContainer.innerHTML = "";
+    let ind = 0;
+    for (const user in users) {
+        if (users.hasOwnProperty(user)) {
+            const u = users[user];
+            if (u != undefined) {
+                u.uid = user;
+                userList.push(u);
+                let userElement = document.createElement('div');
+                userElement.classList = `item ${u.online}`;
+                userElement.id = u.id;
+                userElement.dataset.index = ind;
+                userElement.textContent = u.name;
+                contactsContainer.appendChild(userElement);
+                userElement.addEventListener('click', selectForPrivateCall);
+                ind++;
+            }
+        }
+    }
+}
+
+function selectForPrivateCall(evt) {
+    let targetIndex = evt.target.dataset.index;
+    let user = userList[targetIndex];
+    let userIndex = indexOfInArray(user, 'id', selectedForPrivateCall);
+    if (userIndex == -1) {
+        selectedForPrivateCall.push(user);
+        evt.target.classList.add('selected');
+    } else {
+        selectedForPrivateCall.splice(userIndex, 1);
+        evt.target.classList.remove('selected');
+    }
+
+    if (selectedForPrivateCall.length > 0) {
+        document.querySelector('#privateCall').classList.remove('hide');
+        document.querySelector('#sendAMessage').classList.remove('hide');
+    } else {
+        document.querySelector('#privateCall').classList.add('hide');
+        document.querySelector('#sendAMessage').classList.add('hide');
+    }
+}
+
+function indexOfInArray(element, prop, arr) {
+    for (let i = 0; i < arr.length; i++) {
+        const u = arr[i];
+        if (u[prop] == element[prop]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function showChannelInfo(key, uid, chanName) {
+
+    document.querySelector('.conts').classList.remove('hide');
+    document.querySelector('.talkButtons').classList.remove('hide');
+    document.querySelector('.channel').classList.remove('hide');
+    document.querySelector('.chans').classList.add('hide');
+
+    document.querySelector('.channelHeading').innerHTML = `Connected to ${chanName}`;
+
+    var users = firebase.database().ref(`channels/${key}/users`);
+    users.on('value', function (snapshot) {
+        showUsers(snapshot.val());
+    });
+}
+
+function openChannel(evt) {
+    showLoader();
+    hideInfo();
+    document.querySelector('.chans').classList.add('hide');
+
+    if (currentPrivateChannelKey.length > 2) {
+        document.querySelector('#privateCall').classList.add('end');
+        document.querySelector('#privateCall').classList.remove('hide');
+        document.querySelector('#privateCall').textContent = "End Private Channel";
+    } else {
+        document.querySelector('#privateCall').classList.remove('end');
+        document.querySelector('#privateCall').classList.add('hide');
+        document.querySelector('#privateCall').textContent = "Create Private Call";
+    }
+
+    firebase.database().ref(`channels/${evt.target.id}/users/${uid}/online`).set(true);
+
+    firebase.database().ref(`channels/${evt.target.id}`).once('value', function (snapshot) {
+        chan = snapshot.val();
+        chan.channelKey = evt.target.id;
+
+        channelKey = evt.target.id;
+
+        background.connectToChannel(chan, uid);
+
+        document.querySelector('.channelHeading').innerHTML = `Connected to ${evt.target.innerHTML}`;
+        channelName = evt.target.innerHTML;
+        background.currentChannel.name = channelName;
+
+        channelUsersSubscription = firebase.database().ref(`channels/${evt.target.id}/users`);
+        channelUsersSubscription.on('value', function (snapshot) {
+            showUsers(snapshot.val());
+            hideLoader();
+        });
+
+        inChannel = true;
+    });
+
+
+}
+
+function closeChannel(privateChannelKey) {
+
+    return new Promise(function (resolve, reject) {
+
+        for (let y = 0; y < document.querySelectorAll('.messaging').length; y++) {
+            const element = document.querySelectorAll('.messaging')[y];
+            element.classList.add('hide');
+        }
+
+        document.querySelector('#sendAMessage').classList.add('hide');
+
+        firebase.database().ref(`channels/${channelKey}/users/${uid}/online`).set(false);
+        updateSpeakingUi(false);
+        if (privateChannelKey != undefined) {
+            currentPrivateChannelKey = privateChannelKey;
+        } else {
+            currentPrivateChannelKey = "";
+        }
+        document.querySelector('.conts').classList.add('hide');
+        document.querySelector('.talkButtons').classList.add('hide');
+        document.querySelector('.channel').classList.add('hide');
+        document.querySelector('.chans').classList.remove('hide');
+        document.querySelector('#inbox').classList.add('hide');
+        document.querySelector('#messagesList').classList.add('hide');
+        document.querySelector('#messageBox').classList.add('hide');
+        inChannel = false;
+        channelUsersSubscription.off('value');
+        try {
+            background.started = false;
+            background.disconnectFromChannel();
+        } catch (err) {
+        }
+        resolve(true);
+    });
+}
+
+function minimize() {
+    if (document.querySelector('body').classList.contains('minimized')) {
+        document.querySelector('.min').classList.add('hide');
+        document.querySelector('.max').classList.remove('hide');
+        document.querySelector('body').classList.remove('minimized');
+        document.querySelector('html').classList.remove('minimized');
+
+        background.currentChannel.minimized = false;
+
+        openChannel({
+            target: {
+                innerHTML: channelName,
+                id: channelKey
+            }
+        });
+
+    } else {
+        document.querySelector('.min').classList.remove('hide');
+        document.querySelector('.max').classList.add('hide');
+        document.querySelector('body').classList.add('minimized');
+        document.querySelector('html').classList.add('minimized');
+        background.currentChannel.minimized = true;
+    }
+}
+
+function startChat(evt) {
+    chrome.runtime.getBackgroundPage(function (page) {
+        if (!speaking) {
+            page.start();
+            speaking = true
+            updateSpeakingUi(speaking);
+        } else {
+            speaking = false;
+            endChat();
+        }
+    });
+}
+
+function endChat(evt) {
+    chrome.runtime.getBackgroundPage(function (page) {
+        updateSpeakingUi(speaking);
+        page.stop();
+    });
+}
+
+function listenForPrivateChannel(uid) {
+    firebase.database().ref(`users/${uid}`).on('value', function (snapshot) {
+        var response = snapshot.val();
+        if (response.privateChannel) {
+            if (currentPrivateChannelKey != response.privateChannel.channelKey) {
+                currentPrivateChannelKey = response.privateChannel.channelKey;
+                if (inChannel) {
+                    closeChannel(response.privateChannel.channelKey).then(_ => {
+                        openChannel({
+                            target: {
+                                innerHTML: 'private',
+                                id: response.privateChannel.channelKey
+                            }
+                        });
+                    });
+                } else {
+                    openChannel({
+                        target: {
+                            innerHTML: 'private',
+                            id: response.privateChannel.channelKey
+                        }
+                    });
+                }
+
+            }
+        } else {
+            if (inChannel) {
+                closeChannel().then(_ => {
+                });
+            }
+        }
+    });
+}
+
+function endPrivateCall() {
+    showLoader();
+    let request = new XMLHttpRequest();
+    request.open("DELETE", `https://us-central1-pttapp-5a5d5.cloudfunctions.net/route/privatechannel/${currentPrivateChannelKey}`);
+    request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    request.setRequestHeader("id-token", firebaseIdToken);
+    request.send();
+}
+
+function startPrivateCall(evt) {
+
+    if (currentPrivateChannelKey.length > 2) {
+        endPrivateCall();
+        return;
+    }
+
+    let users = [];
+    let devices = [];
+
+    for (let i = 0; i < selectedForPrivateCall.length; i++) {
+        const contact = selectedForPrivateCall[i];
+        if (contact.type == 'device') {
+            devices.push(contact.uid);
+        }
+        if (contact.type == 'user') {
+            users.push(contact.uid);
+        }
+    }
+
+    if (users.indexOf(uid) == -1) {
+        users.push(uid);
+    }
+
+    let privateChannel = {
+        name: "private",
+        company: me.company,
+        users: users,
+        devices: devices
+    };
+
+    let request = new XMLHttpRequest();
+    request.open("POST", "https://us-central1-pttapp-5a5d5.cloudfunctions.net/route/privatechannel");
+    request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    request.setRequestHeader("id-token", firebaseIdToken);
+
+    request.onreadystatechange = function () {
+        if (request.readyState == 4 && request.status == 200) {
+            var response = JSON.parse(request.responseText);
+            if (response.channelKey) {
+                currentPrivateChannelKey = response.channelKey;
+            }
+        }
+    }
+
+    selectedForPrivateCall = [];
+
+    request.send(JSON.stringify(privateChannel));
+}
+
+function viewInbox() {
+    document.getElementById('viewInbox').classList.add('selected');
+    document.getElementById('messageBox').classList.add('hide');
+    document.getElementById('viewSent').classList.remove('selected');
+    listenForMessages(uid, 'inbox');
+    document.getElementById('inboxHeading').textContent = 'Inbox';
+}
+
+function viewSent() {
+    document.getElementById('viewInbox').classList.remove('selected');
+    document.getElementById('messageBox').classList.add('hide');
+    document.getElementById('viewSent').classList.add('selected');
+    listenForMessages(uid, 'sent');
+    document.getElementById('inboxHeading').textContent = 'Sent';
+}
+
+function showInbox() {
+    for (let y = 0; y < document.querySelectorAll('.voice').length; y++) {
+        const element = document.querySelectorAll('.voice')[y];
+        element.classList.add('hide');
+    }
+    document.querySelector('#inbox').classList.remove('hide');
+    document.querySelector('.chans').classList.add('hide');
+}
+
+function listenForMessages(uid, box) {
+    hideInfo();
+    document.getElementById('inbox').classList.remove('messagesList');
+    document.getElementById('messagesList').classList.remove('hide');
+    var messagesRef = firebase.database().ref(`messages/${uid}/${box}`);
+    messagesRef.on('value', function (snapshot) {
+        displayMessages(snapshot.val());
+    });
+}
+
+function readMessage(evt) {
+    document.querySelector('#sendAMessage').classList.remove('hide');
+    let msg = messagesObject[evt.target.dataset.messageKey];
+
+    sendTo = [];
+
+    let heading = "";
+    if (msg.to) {
+        for (const to in msg.to) {
+            if (msg.to.hasOwnProperty(to)) {
+                const messageTo = msg.to[to];
+                heading = messageTo.name;
+                sendTo.push({
+                    uid: to,
+                    name: heading
+                });
+                break;
+            }
+        }
+        
+    } else {
+        heading = msg.fromName;
+        sendTo.push({
+            uid: msg.fromKey,
+            name: msg.fromName
+        });
+    }
+
+    document.getElementById('messageBox').classList.remove('hide');
+    document.getElementById('messageHeading').textContent = heading;
+    document.getElementById('messageBody').textContent = msg.message;
+    document.getElementById('messageDate').textContent = new Date(msg.timestamp).toUTCString();
+}
+
+function reverseObject(Obj) {
+    var TempArr = [];
+    var NewObj = [];
+    for (var Key in Obj) {
+        TempArr.push(Key);
+    }
+    for (var i = TempArr.length - 1; i >= 0; i--) {
+        NewObj[TempArr[i]] = [];
+    }
+    return NewObj;
+}
+
+function displayMessages(messages) {
+    messagesObject = messages;
+    var container = document.getElementById('msgs');
+    container.innerHTML = "";
+    for (const key in reverseObject(messages)) {
+        if (messages.hasOwnProperty(key)) {
+
+            const msg = messages[key];
+
+            if (msg.fromKey) {
+                //Inbox
+                var messageElement = document.createElement('div');
+                messageElement.classList.add('item');
+                messageElement.classList.add('message');
+                messageElement.dataset.messageKey = key;
+                messageElement.textContent = `${msg.fromName} - ${new Date(msg.timestamp).toDateString()} - ${msg.message}`;
+                messageElement.addEventListener('click', readMessage);
+                container.appendChild(messageElement);
+            } else {
+                //Sent
+                var messageElement = document.createElement('div');
+                messageElement.classList.add('item');
+                messageElement.classList.add('message');
+                messageElement.dataset.messageKey = key;
+
+                let toName = "";
+                for (const to in msg.to) {
+                    if (msg.to.hasOwnProperty(to)) {
+                        const messageTo = msg.to[to];
+                        toName = messageTo.name;
+                        break;
+                    }
+                }
+
+                messageElement.textContent = `${toName} - ${new Date(msg.timestamp).toDateString()} - ${msg.message}`;
+                messageElement.addEventListener('click', readMessage);
+                container.appendChild(messageElement);
+            }
 
 
 
-
-
-
-
+        }
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function () {
 
-    document.getElementById('start').addEventListener('click', function (evt) {
-        chrome.runtime.getBackgroundPage(function (page) {
-            page.captureAudio();
-        });
+    if (DEBUG) {
+        var outDiv = document.getElementById('output');
+        outDiv.textContent = 'test';
+    }
+
+    document.querySelector('#signIn').addEventListener('click', function (evt) {
+        authorize();
     });
 
-    document.getElementById('stop').addEventListener('click', function (evt) {
-        chrome.runtime.getBackgroundPage(function (page) {
-            page.end();
-        });
+    document.addEventListener('keydown', function (evt) {
+        if (evt.keyCode == 32 && inChannel && !speaking) {
+            startChat(evt);
+        }
     });
+
+    document.addEventListener('keyup', function (evt) {
+        if (evt.keyCode == 32 && inChannel && speaking) {
+            speaking = false;
+            endChat(evt);
+        }
+    });
+
+    document.getElementById('start').addEventListener('click', startChat);
+    document.getElementById('startMini').addEventListener('click', startChat);
+    document.getElementById('privateCall').addEventListener('click', startPrivateCall);
+    document.querySelector('#close').addEventListener('click', closeChannel);
+    document.querySelector('#closeItem').addEventListener('click', closeChannel);
+    document.querySelector('#minimize').addEventListener('click', minimize);
+    document.querySelector('.maxMin').addEventListener('click', minimize);
+    document.getElementById('messageItem').addEventListener('click', showInbox);
+    document.getElementById('viewInbox').addEventListener('click', viewInbox);
+    document.getElementById('viewSent').addEventListener('click', viewSent);
+    document.getElementById('sendButton').addEventListener('click', sendMessage);
+    document.getElementById('sendAMessage').addEventListener('click', openMessageModal);
+    document.querySelector('.sendAMessage').addEventListener('click', openMessageModal);
+    document.getElementById('closeMessageModal').addEventListener('click', closeMessageModal);
+
+    for (let i = 0; i < document.querySelectorAll('.loginForm input').length; i++) {
+        const input = document.querySelectorAll('.loginForm input')[i];
+        input.addEventListener('keydown', function (evt) {
+            if (document.querySelector('#user').value.length > 2 && document.querySelector('#pass').value.length > 1) {
+                document.getElementById('signIn').disabled = false;
+            } else {
+                document.getElementById('signIn').disabled = true;
+            }
+        });
+    }
 });
 
+setInterval(function () {
+    if (new Date() - lastMessageDate > 2000) {
+        document.querySelector('.userSpeaking').classList.add('hide');
+        document.querySelector('.userSpeakingMini').innerHTML = `Connected to ${channelName}`;
+        background.currentSpeakerId = -1;
+        if (!speaking) {
+            document.querySelector('#wave').classList.add('notRecording');
+        }
+    }
+}, 1000);
 
+function showSpeakingUser(id) {
+    for (const user in usersObject) {
+        if (usersObject.hasOwnProperty(user)) {
+            const u = usersObject[user];
+            if (u.id == id) {
+                var msg = `${u.name} is speaking`;
+                document.querySelector('.userSpeaking').innerHTML = msg;
+                document.querySelector('.userSpeaking').classList.remove('hide');
+                document.querySelector('.userSpeakingMini').innerHTML = msg;
+                lastMessageDate = new Date();
+            }
+        }
+    }
+}
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    console.log(message.data);
-
-    var outputDiv = document.getElementById('output');
-    outputDiv.textContent = message.data.msg;
-
-
-    // console.log(sender);
-
-    // console.log('Trying...');
-    // dataURLtoBlob(message.data.dataUri, function (blob) {
-    //     console.log('This should be a blob now...');
-    //     console.log(blob);
-
-    //     var audio = document.createElement('audio');
-    //     audio.controls = true;
-    //     var audioURL = window.URL.createObjectURL(blob);
-    //     audio.src = audioURL;
-
-    //     document.getElementsByTagName('body')[0].appendChild(audio);
-    // });
-
-
-    // var blob = new Blob([message.data.dataUri], { type: message.data.type });
-
-    // console.log('TODO: Do something with ' + message.type + ':', blob);
-
-    // Do something, e.g. reply to message
-    // sendResponse('Processed file');
-
-
-    // var blob = dataURLtoBlob(message.data);
-    // saveBlobToFile(blob, "screenshot.ogg");
-
-    // var audio = document.createElement('audio');
-    // audio.controls = true;
-    // var blob = new Blob([message.data.blob], { 'type': 'audio/ogg; codecs=opus' });
-    // var audioURL = window.URL.createObjectURL(blob);
-    // console.log(audioURL);
-    // console.log(blob);
-    // audio.src = audioURL;
-
-    // document.getElementsByTagName('body')[0].appendChild(audio);
-    // audio.play();
-
-    // sendResponse({
-    //     data: "I am fine, thank you. How is life in the background?"
-    // }); 
+    if (message.data.showUserSpeaking) {
+        showSpeakingUser(message.data.id);
+        document.querySelector('#wave').classList.remove('notRecording');
+    } else {
+        if (DEBUG) {
+            var outputDiv = document.getElementById('output');
+            outputDiv.textContent = message.data.msg;
+        }
+    }
 });
 
-function dataURLtoBlob(dataUrl, callback) {
-    var req = new XMLHttpRequest();
 
-    req.open('GET', dataUrl);
-    req.responseType = 'arraybuffer'; // Can't use blob directly because of https://crbug.com/412752
-
-    req.onload = function fileLoaded(e) {
-        // If you require the blob to have correct mime type
-        var mime = this.getResponseHeader('content-type');
-
-        callback(new Blob([this.response], { type: mime }));
-    };
-
-    req.send();
+window.onerror = function (err) {
+    showInfo(err);
 }
 
-function dataURItoBlob(dataURI, dataTYPE) {
-    var binary = atob(dataURI.split(',')[1]), array = [];
-    for (var i = 0; i < binary.length; i++) array.push(binary.charCodeAt(i));
-    return new Blob([new Uint8Array(array)], { type: dataTYPE });
+function createMessageRef(uid) {
+    messagesRef = firebase.database().ref(`messages/${uid}/send`);
 }
 
+function sendMessage() {
+    messageText = document.getElementById('messageText').value;
 
-// function dataURLtoBlob(dataURL) {
-//     var byteString = atob(dataURL.split(',')[1]),
-//         mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
+    var sendList = [];
+    for (let i = 0; i < sendTo.length; i++) {
+        const user = sendTo[i];
+        sendList.push({
+            id: user.uid,
+            name: user.name
+        });
+    }
+    messagesRef.set({
+        to: sendList,
+        message: messageText
+    });
+    document.getElementById('messageText').textContent = "";
+    setTimeout(_ => {
+        closeMessageModal();
+        showInfo('Message sent');
+    }, 1000);
+}
 
-//     var ab = new ArrayBuffer(byteString.length);
-//     var ia = new Uint8Array(ab);
-//     for (var i = 0; i < byteString.length; i++) {
-//         ia[i] = byteString.charCodeAt(i);
-//     }
+function removeRecipient(evt) {
+    sendTo.splice(evt.target.dataset.index, 1);
+    updateRecipients();
+}
 
-//     var blob = new Blob([ia], { type: mimeString });
-//     return blob;
-// }
+function updateRecipients() {
+    var messagetoContainer = document.getElementById('toList');
+    messagetoContainer.innerHTML = "";
+    for (let i = 0; i < sendTo.length; i++) {
+        const element = sendTo[i];
+        var pEl = document.createElement('span');
+        pEl.classList.add('recipient');
+        pEl.textContent = element.name;
+        pEl.dataset.uid = element.uid;
+        messagetoContainer.appendChild(pEl);
+
+        var closeElement = document.createElement('span');
+        closeElement.classList.add('closeClick');
+        closeElement.dataset.index = i;
+        closeElement.addEventListener('click', removeRecipient);
+        closeElement.textContent = "x";
+        pEl.appendChild(closeElement);
+    }
+
+    if (sendTo.length == 0) {
+        closeMessageModal();
+    }
+}
+
+function closeMessageModal() {
+    document.getElementById('messageBlanket').classList.add('hide');
+}
+
+function openMessageModal() {
+    if (selectedForPrivateCall.length > 0) {
+        sendTo = selectedForPrivateCall;
+    }
+    updateRecipients();
+    document.getElementById('messageBlanket').classList.remove('hide');
+}
