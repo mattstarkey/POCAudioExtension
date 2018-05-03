@@ -73,7 +73,7 @@
 		box-sizing: border-box;
 	}
 
-	.item:active {
+	.item:active:not(.false) {
 		background-color: #144d80 !important;
 		color: #fff !important;
 	}
@@ -264,6 +264,23 @@
 
 	.menu {
 		max-width: 20%;
+		position: relative;
+	}
+
+	.logout {
+		background: #1e88e5;
+		text-align: center;
+		color: #fff;
+		padding: 3px;
+		position: absolute;
+		width: 100%;
+		bottom: 0;
+		box-sizing: border-box;
+		cursor: pointer;
+	}
+
+	.logout:active {
+		background: #156fbe;
 	}
 
 	.speaking {
@@ -349,7 +366,7 @@
 	}
 
 	.colHeight {
-		overflow: scroll;
+		overflow: auto;
 		height: 100%;
 	}
 
@@ -391,6 +408,7 @@
 		position: absolute;
 		text-align: center;
 		padding: 10% 0;
+		z-index: 1;
 	}
 
 	.loginForm input {
@@ -435,11 +453,15 @@
 	}
 
 	::-webkit-scrollbar {
-		width: 0px
+		/* width: 0px */
 	}
 
 	.item {
 		cursor: pointer;
+	}
+
+	.item.false {
+		cursor: default;
 	}
 
 	.item.selected {
@@ -579,7 +601,8 @@
 		box-shadow: 0 0 10px #719ECE;
 	}
 
-	#sendAMessage, .sendAMessage {
+	#sendAMessage,
+	.sendAMessage {
 		position: absolute;
 		bottom: 0;
 		background: #23cc76;
@@ -602,9 +625,53 @@
 		float: right;
 		cursor: pointer;
 	}
+
+	#messageBody.read:after {
+		content: '\00b0 \00b0' !important;
+		float: right;
+		color: #68bb72;
+		font-size: 13px;
+		margin-top: 2px;
+	}
+
+	#messageBody.ack:after {
+		content: '\00b0';
+		float: right;
+		color: #68bb72;
+		font-size: 13px;
+		margin-top: 2px;
+	}
+
+	.msgReadOn {
+		text-align: center;
+		color: #989898;
+		background: #ececec;
+		padding: 3px;
+		border-bottom-left-radius: 7px;
+		border-bottom-right-radius: 7px;
+		position: relative;
+		top: -13px;
+		z-index: -1;
+		font-size: 10px;
+	}
+
+	#unread {
+		background: red;
+		border-radius: 50%;
+		width: 6px;
+		height: 6px;
+		position: absolute;
+		top: 14px;
+		display: block;
+		left: 71px;
+	}
+
+	#messageItem {
+		position: relative;
+	}
 </style>
 
-<script src="https://www.gstatic.com/firebasejs/4.10.1/firebase.js"></script>
+<script src="firebase.js"></script>
 <script src="popup.js"></script>
 
 <div id="mainPopup">
@@ -653,7 +720,12 @@
 		<div class="menu col col2">
 			<p class="heading">Menu</p>
 			<div class="item" id="closeItem">Select Channel</div>
-			<div class="item" id="messageItem">Messages</div>
+			<div class="item" id="messageItem">Messages
+				<span id="unread" class="hide"></span>
+			</div>
+			<div class="logout">
+				Log out
+			</div>
 		</div>
 
 		<div class="col col2 chans colHeight">
@@ -679,6 +751,7 @@
 			<div class="aMessage">
 				<p id="messageDate"></p>
 				<p id="messageBody"></p>
+				<p class="msgReadOn"></p>
 			</div>
 			<span class="sendAMessage" class="hide">Send Message</span>
 		</div>

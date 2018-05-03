@@ -1,8 +1,8 @@
 {
   "name": "iTalk Chrome Extension.",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "manifest_version": 2,
-  "description": "Browser extension to use iTalk Services.",
+  "description": "This extension allows users access to the ITalk push to talk communication service.",
   "homepage_url": "http://www.italkptt.com/",
   "icons": {
     "16": "icons/icon16.png",
@@ -27,10 +27,7 @@
     "default_popup": "src/browser_action/browser_action.html"
   },
   "permissions": [
-    "tabs",
-    "geolocation",
-    "tabCapture",
-    "desktopCapture"
+    
   ],
   "content_security_policy": "script-src 'self' https://cdn.firebase.com https://*.firebaseio.com https://www.gstatic.com; object-src 'self'",
   "content_scripts": [

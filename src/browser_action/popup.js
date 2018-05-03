@@ -31,6 +31,9 @@ var messagesRef;
 var sendTo = [];
 var messageText = "";
 var myPacketId;
+var unreadMessages = false;
+var oldChannelKey;
+var oldChannelName;
 
 function showInfo(msg) {
     document.querySelector('.info').classList.remove('hide');
@@ -73,6 +76,10 @@ chrome.runtime.getBackgroundPage(function (page) {
         AuthAndInit(background.user, background.pass);
     }
 
+    if (background.currentChannel.showingMessages) {
+        showInbox();
+    }
+
 });
 
 function authorize() {
@@ -95,7 +102,9 @@ function AuthAndInit(username, password) {
 
 
         hideLogin();
-        hideLoader();
+        setInterval(_ => {
+            hideLoader();
+        }, 1500);
 
         background.user = username;
         background.pass = password;
@@ -125,6 +134,8 @@ function AuthAndInit(username, password) {
             showChannels(snapshot.val());
         });
 
+        listenForMessages(uid, 'inbox', false);
+
     }).catch(function (error) {
         // Handle Errors here.
         showInfo(error.message);
@@ -142,7 +153,9 @@ function displayChannel(channel, channelContainer) {
     chan.id = channel.channelKey;
     chan.textContent = channel.channelName;
     channelContainer.appendChild(chan);
-    chan.addEventListener('click', openChannel);
+    chan.addEventListener('click', function (evt) {
+        openChannel(evt, false);
+    });
 }
 
 
@@ -199,7 +212,11 @@ function showUsers(users) {
                 u.uid = user;
                 userList.push(u);
                 let userElement = document.createElement('div');
-                userElement.classList = `item ${u.online}`;
+                let onlineClass = u.online;
+                if (onlineClass == undefined) {
+                    onlineClass = false;
+                }
+                userElement.classList = `item ${onlineClass}`;
                 userElement.id = u.id;
                 userElement.dataset.index = ind;
                 userElement.textContent = u.name;
@@ -216,8 +233,10 @@ function selectForPrivateCall(evt) {
     let user = userList[targetIndex];
     let userIndex = indexOfInArray(user, 'id', selectedForPrivateCall);
     if (userIndex == -1) {
-        selectedForPrivateCall.push(user);
-        evt.target.classList.add('selected');
+        if (evt.target.classList.contains('true')) {
+            selectedForPrivateCall.push(user);
+            evt.target.classList.add('selected');
+        }
     } else {
         selectedForPrivateCall.splice(userIndex, 1);
         evt.target.classList.remove('selected');
@@ -252,14 +271,20 @@ function showChannelInfo(key, uid, chanName) {
     document.querySelector('.channelHeading').innerHTML = `Connected to ${chanName}`;
 
     var users = firebase.database().ref(`channels/${key}/users`);
+
     users.on('value', function (snapshot) {
         showUsers(snapshot.val());
     });
 }
 
-function openChannel(evt) {
+function openChannel(evt, private) {
     showLoader();
     hideInfo();
+    channelKey = evt.target.id;
+    if (!private) {
+        oldChannelKey = channelKey;
+        oldChannelName = evt.target.innerHTML;
+    }
     document.querySelector('.chans').classList.add('hide');
 
     if (currentPrivateChannelKey.length > 2) {
@@ -302,6 +327,8 @@ function closeChannel(privateChannelKey) {
 
     return new Promise(function (resolve, reject) {
 
+        background.currentChannel.showingMessages = false;
+
         for (let y = 0; y < document.querySelectorAll('.messaging').length; y++) {
             const element = document.querySelectorAll('.messaging')[y];
             element.classList.add('hide');
@@ -315,6 +342,14 @@ function closeChannel(privateChannelKey) {
             currentPrivateChannelKey = privateChannelKey;
         } else {
             currentPrivateChannelKey = "";
+            if (oldChannelName) {
+                openChannel({
+                    target: {
+                        innerHTML: oldChannelName,
+                        id: oldChannelKey
+                    }
+                }, false);
+            }
         }
         document.querySelector('.conts').classList.add('hide');
         document.querySelector('.talkButtons').classList.add('hide');
@@ -340,6 +375,7 @@ function minimize() {
         document.querySelector('.max').classList.remove('hide');
         document.querySelector('body').classList.remove('minimized');
         document.querySelector('html').classList.remove('minimized');
+        document.querySelector('.userSpeakingMini').innerHTML = `Connected to ${channelName}`;
 
         background.currentChannel.minimized = false;
 
@@ -348,7 +384,7 @@ function minimize() {
                 innerHTML: channelName,
                 id: channelKey
             }
-        });
+        }, false);
 
     } else {
         document.querySelector('.min').classList.remove('hide');
@@ -392,7 +428,7 @@ function listenForPrivateChannel(uid) {
                                 innerHTML: 'private',
                                 id: response.privateChannel.channelKey
                             }
-                        });
+                        }, true);
                     });
                 } else {
                     openChannel({
@@ -400,7 +436,7 @@ function listenForPrivateChannel(uid) {
                             innerHTML: 'private',
                             id: response.privateChannel.channelKey
                         }
-                    });
+                    }, true);
                 }
 
             }
@@ -476,7 +512,7 @@ function viewInbox() {
     document.getElementById('viewInbox').classList.add('selected');
     document.getElementById('messageBox').classList.add('hide');
     document.getElementById('viewSent').classList.remove('selected');
-    listenForMessages(uid, 'inbox');
+    listenForMessages(uid, 'inbox', true);
     document.getElementById('inboxHeading').textContent = 'Inbox';
 }
 
@@ -484,23 +520,35 @@ function viewSent() {
     document.getElementById('viewInbox').classList.remove('selected');
     document.getElementById('messageBox').classList.add('hide');
     document.getElementById('viewSent').classList.add('selected');
-    listenForMessages(uid, 'sent');
+    listenForMessages(uid, 'sent', true);
     document.getElementById('inboxHeading').textContent = 'Sent';
 }
 
 function showInbox() {
+    background.currentChannel.showingMessages = true;
     for (let y = 0; y < document.querySelectorAll('.voice').length; y++) {
         const element = document.querySelectorAll('.voice')[y];
         element.classList.add('hide');
     }
+
+    if (!document.querySelector('.channel').classList.contains('hide')) {
+        document.querySelector('.channel').classList.add('hide');
+    }
+
+    if (!document.querySelector('.conts').classList.contains('hide')) {
+        document.querySelector('.conts').classList.add('hide');
+    }
+
     document.querySelector('#inbox').classList.remove('hide');
     document.querySelector('.chans').classList.add('hide');
 }
 
-function listenForMessages(uid, box) {
-    hideInfo();
-    document.getElementById('inbox').classList.remove('messagesList');
-    document.getElementById('messagesList').classList.remove('hide');
+function listenForMessages(uid, box, show) {
+    if (show) {
+        hideInfo();
+        document.getElementById('inbox').classList.remove('messagesList');
+        document.getElementById('messagesList').classList.remove('hide');
+    }
     var messagesRef = firebase.database().ref(`messages/${uid}/${box}`);
     messagesRef.on('value', function (snapshot) {
         displayMessages(snapshot.val());
@@ -510,6 +558,13 @@ function listenForMessages(uid, box) {
 function readMessage(evt) {
     document.querySelector('#sendAMessage').classList.remove('hide');
     let msg = messagesObject[evt.target.dataset.messageKey];
+    let msgKey = evt.target.dataset.messageKey;
+
+    if (evt.target.dataset.msgType == 'inbox') {
+        firebase.database().ref(`messages/${uid}/inbox/${msgKey}/read`).set(Date.now());
+        firebase.database().ref(`messages/${uid}/inbox/${msgKey}/ack`).set(Date.now());
+        unreadMessages = false;
+    }
 
     sendTo = [];
 
@@ -518,6 +573,8 @@ function readMessage(evt) {
         for (const to in msg.to) {
             if (msg.to.hasOwnProperty(to)) {
                 const messageTo = msg.to[to];
+                msg.ack = messageTo.ack;
+                msg.read = messageTo.read;
                 heading = messageTo.name;
                 sendTo.push({
                     uid: to,
@@ -526,7 +583,7 @@ function readMessage(evt) {
                 break;
             }
         }
-        
+
     } else {
         heading = msg.fromName;
         sendTo.push({
@@ -538,7 +595,15 @@ function readMessage(evt) {
     document.getElementById('messageBox').classList.remove('hide');
     document.getElementById('messageHeading').textContent = heading;
     document.getElementById('messageBody').textContent = msg.message;
-    document.getElementById('messageDate').textContent = new Date(msg.timestamp).toUTCString();
+    document.getElementById('messageBody').classList.remove('ack')
+    document.getElementById('messageBody').classList.remove('read')
+    if (msg.ack != undefined) document.getElementById('messageBody').classList.add('ack');
+    if (msg.read != undefined) document.getElementById('messageBody').classList.add('read');
+    document.getElementById('messageDate').textContent = new Date(msg.timestamp).toUTCString().split('G')[0];
+
+    if (new Date(msg.read) != 'Invalid Date') {
+        document.querySelector('.msgReadOn').textContent = 'Read on ' + new Date(msg.read).toUTCString().split('G')[0];
+    }
 }
 
 function reverseObject(Obj) {
@@ -569,11 +634,16 @@ function displayMessages(messages) {
                 messageElement.classList.add('message');
                 messageElement.dataset.messageKey = key;
                 messageElement.textContent = `${msg.fromName} - ${new Date(msg.timestamp).toDateString()} - ${msg.message}`;
+                messageElement.dataset.msgType = 'inbox';
                 messageElement.addEventListener('click', readMessage);
                 container.appendChild(messageElement);
+                if (msg.read == undefined) {
+                    unreadMessages = true;
+                }
             } else {
                 //Sent
                 var messageElement = document.createElement('div');
+                messageElement.dataset.msgType = 'sent';
                 messageElement.classList.add('item');
                 messageElement.classList.add('message');
                 messageElement.dataset.messageKey = key;
@@ -636,6 +706,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('sendAMessage').addEventListener('click', openMessageModal);
     document.querySelector('.sendAMessage').addEventListener('click', openMessageModal);
     document.getElementById('closeMessageModal').addEventListener('click', closeMessageModal);
+    document.querySelector('.logout').addEventListener('click', logOut);
 
     for (let i = 0; i < document.querySelectorAll('.loginForm input').length; i++) {
         const input = document.querySelectorAll('.loginForm input')[i];
@@ -658,7 +729,22 @@ setInterval(function () {
             document.querySelector('#wave').classList.add('notRecording');
         }
     }
+
+    if (background.currentChannel.showingMessages) {
+        showInbox();
+    }
+
+    if (unreadMessages) {
+        document.getElementById('unread').classList.remove('hide');
+    } else {
+        document.getElementById('unread').classList.add('hide');
+    }
 }, 1000);
+
+function logOut() {
+    firebase.auth().signOut();
+    showLogin();
+}
 
 function showSpeakingUser(id) {
     for (const user in usersObject) {

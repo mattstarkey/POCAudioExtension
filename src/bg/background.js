@@ -47,7 +47,8 @@ var currentChannel = {
   minimized: false,
   name: '',
   loggedIn : false,
-  myPacketId: 0
+  myPacketId: 0,
+  showingMessages: false
 }
 
 function disconnectFromChannel() {
