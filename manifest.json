@@ -1,6 +1,6 @@
 {
   "name": "iTalk Chrome Extension.",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "manifest_version": 2,
   "description": "This extension allows users access to the ITalk push to talk communication service.",
   "homepage_url": "http://www.italkptt.com/",

@@ -66,6 +66,10 @@ function disconnectFromChannel() {
   currentChannel.key = '';
 }
 
+function reset() {
+  chrome.runtime.restart();
+}
+
 function connectToChannel(channel, uid) {
 
   if (socket != undefined) {

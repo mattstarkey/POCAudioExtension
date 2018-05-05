@@ -62,6 +62,8 @@ function hideLoader() {
 
 chrome.runtime.getBackgroundPage(function (page) {
     background = page;
+    channelKey = background.currentChannel.key;
+    channelName = background.currentChannel.name;
 
     if (background.currentChannel.connected) {
         document.querySelector('.loginForm').classList.add('hide');
@@ -154,6 +156,10 @@ function displayChannel(channel, channelContainer) {
     chan.textContent = channel.channelName;
     channelContainer.appendChild(chan);
     chan.addEventListener('click', function (evt) {
+        channelName = evt.target.innerHTML;
+        channelKey = evt.target.id;
+        background.currentChannel.key = channelKey;
+        background.currentChannel.name = channelName;
         openChannel(evt, false);
     });
 }
@@ -375,7 +381,7 @@ function minimize() {
         document.querySelector('.max').classList.remove('hide');
         document.querySelector('body').classList.remove('minimized');
         document.querySelector('html').classList.remove('minimized');
-        document.querySelector('.userSpeakingMini').innerHTML = `Connected to ${channelName}`;
+        document.querySelector('.userSpeakingMini').innerHTML = `Connected to ${background.currentChannel.name}`;
 
         background.currentChannel.minimized = false;
 
@@ -742,8 +748,10 @@ setInterval(function () {
 }, 1000);
 
 function logOut() {
-    firebase.auth().signOut();
-    showLogin();
+    firebase.auth().signOut().then(_ => {
+        background.reset();
+        showLogin();
+    });
 }
 
 function showSpeakingUser(id) {
