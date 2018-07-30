@@ -65,6 +65,7 @@ var OpusEncoder = (function () {
         this.in_f32 = HEAPF32.subarray(this.in_ptr >> 2, (this.in_ptr >> 2) + this.in_len);
         this.out_bytes = Opus.getMaxFrameSize();
         this.out_ptr = _malloc(this.out_bytes);
+        this.HEAP32 = HEAP32;
         this.out_buf = HEAPU8.subarray(this.out_ptr, this.out_ptr + this.out_bytes);
     }
     OpusEncoder.prototype.encode = function (pcm) {
@@ -149,6 +150,12 @@ var OpusEncoder = (function () {
         _opus_encoder_destroy(this.handle);
         _free(this.in_ptr);
         this.handle = this.in_ptr = 0;
+    };
+    OpusEncoder.prototype.encoderCtl = function (control, value) {
+      var location = _malloc( 4 );
+      this.HEAP32[ location >> 2 ] = value;
+      var len = _opus_encoder_ctl( this.handle, control, location );
+      _free( location );
     };
     return OpusEncoder;
 })();

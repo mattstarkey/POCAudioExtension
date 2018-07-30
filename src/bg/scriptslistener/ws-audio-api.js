@@ -51,6 +51,9 @@
 
             this.sampler = new Resampler(sampleRate, this.config.codec.sampleRate, 1, this.config.codec.bufferSize);
             this.encoder = new OpusEncoder(this.config.codec.sampleRate, this.config.codec.channels, this.config.codec.app, this.config.codec.frameDuration);
+            //  console.log(this.encoder);
+            this.encoder.encoderCtl(4002, 6000);
+            this.encoder.encoderCtl(4010, 10);
             var _this = this;
             this._makeStream = function (onError) {
 
@@ -139,7 +142,7 @@
             this.recorder.disconnect();
             this.recorder = null;
         }
-        this.stream.getTracks()[0].stop()
+        this.stream.getTracks()[0].stop();
     };
 
     WSAudioAPI.Player.prototype.start = function () {

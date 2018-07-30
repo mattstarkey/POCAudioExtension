@@ -160,7 +160,6 @@
 	}
 
 	.soundWave {
-		background: #f7f7f7;
 		width: 120px;
 		height: 120px;
 		border-radius: 50%;
@@ -171,10 +170,17 @@
 		right: 0;
 		margin: auto;
 		text-align: center;
+		background: #46d646;
+		box-shadow: inset 0px 0px 9px #2a8b2a;
+	}
+
+	.soundWave.notRecording {
+		background: #f54337;
+		box-shadow: none;
 	}
 
 	#wave path {
-		fill: #3f51b5;
+		fill: #ffffff;
 	}
 
 	#wave.notRecording path {
@@ -188,6 +194,7 @@
 		fill: #fff;
 		position: relative;
 		top: 9px;
+		cursor: pointer;
 	}
 
 	#Line_1 {
@@ -682,8 +689,12 @@
 
 	<div class="loginForm">
 		<img src="/icons/iTALKPTT-Logo.jpg" alt="">
-		<input type="text" id="user" class="first" placeholder="username">
-		<input type="password" id="pass" class="last" placeholder="password">
+		<!-- <form method="POST" autocomplete="on"> -->
+		<!-- autocomplete="italk-username" -->
+		<input type="text" id="user" class="first" placeholder="username" name="italk-username">
+		<!-- autocomplete="italk-password" -->
+		<input type="password" id="pass" class="last" placeholder="password" name="italk-password">
+		<!-- </form> -->
 		<button id="signIn" disabled>Sign In</button>
 	</div>
 

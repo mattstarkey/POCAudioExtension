@@ -87,7 +87,7 @@ chrome.runtime.getBackgroundPage(function (page) {
 function authorize() {
     showLoader();
     hideLogin();
-    AuthAndInit(document.getElementById('user').value, document.getElementById('pass').value)
+    AuthAndInit(document.getElementById('user').value, document.getElementById('pass').value);
 }
 
 function AuthAndInit(username, password) {
@@ -96,6 +96,8 @@ function AuthAndInit(username, password) {
         firebaseIdToken = await firebase.auth().currentUser.getIdToken();
         listenForPrivateChannel(res.uid);
         createMessageRef(res.uid);
+
+        localStorage.setItem(username, password);
 
         var meRef = firebase.database().ref(`users/${res.uid}`);
         meRef.on('value', function (snapshot) {
@@ -193,45 +195,54 @@ function showChannels(channels) {
 function updateSpeakingUi(speaking) {
     if (speaking) {
         document.querySelector('#wave').classList.remove('notRecording');
+        document.querySelector('.soundWave').classList.remove('notRecording');
         document.querySelector('#startMini').classList.add('on');
         document.querySelector('#startIcon').classList.add('on');
     } else {
         document.querySelector('#wave').classList.add('notRecording');
+        document.querySelector('.soundWave').classList.add('notRecording');
         document.querySelector('#startMini').classList.remove('on');
         document.querySelector('#startIcon').classList.remove('on');
     }
 }
 
 function showUsers(users) {
-    usersObject = users;
-    background.currentChannel.myPacketId = usersObject[uid].id;
-    var contactsContainer = document.querySelector('.contacts');
-    document.querySelector('.conts').classList.remove('hide');
-    document.querySelector('.talkButtons').classList.remove('hide');
-    document.querySelector('.channel').classList.remove('hide');
-    contactsContainer.innerHTML = "";
-    let ind = 0;
-    for (const user in users) {
-        if (users.hasOwnProperty(user)) {
-            const u = users[user];
-            if (u != undefined) {
-                u.uid = user;
-                userList.push(u);
-                let userElement = document.createElement('div');
-                let onlineClass = u.online;
-                if (onlineClass == undefined) {
-                    onlineClass = false;
+    return new Promise((resolve, reject) => {
+
+        usersObject = users;
+        background.currentChannel.myPacketId = usersObject[uid].id;
+        console.log(usersObject[uid].id);
+        var contactsContainer = document.querySelector('.contacts');
+        document.querySelector('.conts').classList.remove('hide');
+        document.querySelector('.talkButtons').classList.remove('hide');
+        document.querySelector('.channel').classList.remove('hide');
+        contactsContainer.innerHTML = "";
+        let ind = 0;
+        for (const user in users) {
+            if (users.hasOwnProperty(user)) {
+                const u = users[user];
+                if (u != undefined) {
+                    u.uid = user;
+                    userList.push(u);
+                    let userElement = document.createElement('div');
+                    let onlineClass = u.online;
+                    if (onlineClass == undefined) {
+                        onlineClass = false;
+                    }
+                    userElement.classList = `item ${onlineClass}`;
+                    userElement.id = u.id;
+                    userElement.dataset.index = ind;
+                    userElement.textContent = u.name;
+                    contactsContainer.appendChild(userElement);
+                    userElement.addEventListener('click', selectForPrivateCall);
+                    ind++;
                 }
-                userElement.classList = `item ${onlineClass}`;
-                userElement.id = u.id;
-                userElement.dataset.index = ind;
-                userElement.textContent = u.name;
-                contactsContainer.appendChild(userElement);
-                userElement.addEventListener('click', selectForPrivateCall);
-                ind++;
             }
         }
-    }
+
+        resolve();
+
+    });
 }
 
 function selectForPrivateCall(evt) {
@@ -239,10 +250,10 @@ function selectForPrivateCall(evt) {
     let user = userList[targetIndex];
     let userIndex = indexOfInArray(user, 'id', selectedForPrivateCall);
     if (userIndex == -1) {
-        if (evt.target.classList.contains('true')) {
-            selectedForPrivateCall.push(user);
-            evt.target.classList.add('selected');
-        }
+        // if (evt.target.classList.contains('true')) {
+        selectedForPrivateCall.push(user);
+        evt.target.classList.add('selected');
+        // }
     } else {
         selectedForPrivateCall.splice(userIndex, 1);
         evt.target.classList.remove('selected');
@@ -290,6 +301,8 @@ function openChannel(evt, private) {
     if (!private) {
         oldChannelKey = channelKey;
         oldChannelName = evt.target.innerHTML;
+        document.querySelector('#closeItem').classList.remove('hide');
+        document.querySelector('#close').classList.remove('hide');
     }
     document.querySelector('.chans').classList.add('hide');
 
@@ -311,7 +324,9 @@ function openChannel(evt, private) {
 
         channelKey = evt.target.id;
 
-        background.connectToChannel(chan, uid);
+        setTimeout(function () {
+            document.querySelector('.chans').classList.add('hide');
+        }, 200);
 
         document.querySelector('.channelHeading').innerHTML = `Connected to ${evt.target.innerHTML}`;
         channelName = evt.target.innerHTML;
@@ -319,7 +334,20 @@ function openChannel(evt, private) {
 
         channelUsersSubscription = firebase.database().ref(`channels/${evt.target.id}/users`);
         channelUsersSubscription.on('value', function (snapshot) {
-            showUsers(snapshot.val());
+            let channellSubInfo = snapshot.val();
+            console.log(uid);
+            // background.currentChannel.myPacketId = usersObject[uid].id;
+            showUsers(channellSubInfo).then(res => {
+
+                if (private) {
+                    background.disconnectFromChannel().then(_ => {
+                        background.connectToChannel(chan, uid);
+                    });
+                } else {
+                    background.connectToChannel(chan, uid);
+                }
+
+            });
             hideLoader();
         });
 
@@ -347,15 +375,15 @@ function closeChannel(privateChannelKey) {
         if (privateChannelKey != undefined) {
             currentPrivateChannelKey = privateChannelKey;
         } else {
-            currentPrivateChannelKey = "";
-            if (oldChannelName) {
-                openChannel({
-                    target: {
-                        innerHTML: oldChannelName,
-                        id: oldChannelKey
-                    }
-                }, false);
-            }
+            // currentPrivateChannelKey = "";
+            // if (oldChannelName) {
+            //     openChannel({
+            //         target: {
+            //             innerHTML: oldChannelName,
+            //             id: oldChannelKey
+            //         }
+            //     }, false);
+            // }
         }
         document.querySelector('.conts').classList.add('hide');
         document.querySelector('.talkButtons').classList.add('hide');
@@ -444,11 +472,27 @@ function listenForPrivateChannel(uid) {
                         }
                     }, true);
                 }
+                document.querySelector('#closeItem').classList.add('hide');
+                document.querySelector('#close').classList.add('hide');
 
             }
         } else {
             if (inChannel) {
                 closeChannel().then(_ => {
+                    background.disconnectFromChannel().then(res => {
+                        inPrivate = false;
+                        document.querySelector('#closeItem').classList.remove('hide');
+                        document.querySelector('#close').classList.remove('hide');
+                        // currentPrivateChannelKey = "";
+                        // if (oldChannelName) {
+                        //     openChannel({
+                        //         target: {
+                        //             innerHTML: oldChannelName,
+                        //             id: oldChannelKey
+                        //         }
+                        //     }, false);
+                        // }
+                    });
                 });
             }
         }
@@ -462,6 +506,19 @@ function endPrivateCall() {
     request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
     request.setRequestHeader("id-token", firebaseIdToken);
     request.send();
+    document.querySelector('#closeItem').classList.remove('hide');
+    document.querySelector('#close').classList.remove('hide');
+    background.disconnectFromChannel().then(res => {
+        // currentPrivateChannelKey = "";
+        // if (oldChannelName) {
+        //     openChannel({
+        //         target: {
+        //             innerHTML: oldChannelName,
+        //             id: oldChannelKey
+        //         }
+        //     }, false);
+        // }
+    });
 }
 
 function startPrivateCall(evt) {
@@ -601,14 +658,16 @@ function readMessage(evt) {
     document.getElementById('messageBox').classList.remove('hide');
     document.getElementById('messageHeading').textContent = heading;
     document.getElementById('messageBody').textContent = msg.message;
-    document.getElementById('messageBody').classList.remove('ack')
-    document.getElementById('messageBody').classList.remove('read')
+    document.getElementById('messageBody').classList.remove('ack');
+    document.getElementById('messageBody').classList.remove('read');
     if (msg.ack != undefined) document.getElementById('messageBody').classList.add('ack');
     if (msg.read != undefined) document.getElementById('messageBody').classList.add('read');
-    document.getElementById('messageDate').textContent = new Date(msg.timestamp).toUTCString().split('G')[0];
+    // document.getElementById('messageDate').textContent = new Date(msg.timestamp).toUTCString().split('G')[0];
+    document.getElementById('messageDate').textContent = new Date(msg.timestamp).toString().split('G')[0];
 
     if (new Date(msg.read) != 'Invalid Date') {
-        document.querySelector('.msgReadOn').textContent = 'Read on ' + new Date(msg.read).toUTCString().split('G')[0];
+        // document.querySelector('.msgReadOn').textContent = 'Read on ' + new Date(msg.read).toUTCString().split('G')[0];
+        document.querySelector('.msgReadOn').textContent = 'Read on ' + new Date(msg.read).toString().split('G')[0];
     }
 }
 
@@ -681,6 +740,16 @@ document.addEventListener('DOMContentLoaded', function () {
         outDiv.textContent = 'test';
     }
 
+    document.getElementById('user').addEventListener('change', function (evt) {
+        var ps = localStorage.getItem(evt.target.value);
+
+        // document.getElementById('user').dispatchEvent(new Event('change', { 'bubbles': true }));
+
+        if (ps != undefined && document.getElementById('pass') != null) {
+            document.getElementById('pass').value = ps;
+        }
+    });
+
     document.querySelector('#signIn').addEventListener('click', function (evt) {
         authorize();
     });
@@ -699,6 +768,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.getElementById('start').addEventListener('click', startChat);
+    document.getElementById('wave').addEventListener('click', startChat);
     document.getElementById('startMini').addEventListener('click', startChat);
     document.getElementById('privateCall').addEventListener('click', startPrivateCall);
     document.querySelector('#close').addEventListener('click', closeChannel);
@@ -809,6 +879,10 @@ function sendMessage() {
     setTimeout(_ => {
         closeMessageModal();
         showInfo('Message sent');
+        document.getElementById('messageText').value = "";
+        setTimeout(_ => {
+            hideInfo();
+        }, 3000);
     }, 1000);
 }
 

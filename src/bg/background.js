@@ -6,6 +6,8 @@ var player;
 var socket;
 var currentSpeakerId = -1;
 var streamerCreated = false;
+var oldPrivateChannelKey;
+var uid;
 
 var config = {
   codec: {
@@ -46,24 +48,33 @@ var currentChannel = {
   speaking: false,
   minimized: false,
   name: '',
-  loggedIn : false,
+  loggedIn: false,
   myPacketId: 0,
   showingMessages: false
 }
 
 function disconnectFromChannel() {
-  if (socket.connected) {
-    socket.disconnect();
-  }
-  player.stop();
-  // if (started) {
-  //   streamer.disconnect();
-  // }
-  player = null;
-  streamer = null;
-  currentChannel.speaking = false;
-  currentChannel.connected = false;
-  currentChannel.key = '';
+  return new Promise((resolve, reject) => {
+
+    if (socket.connected) {
+      socket.disconnect();
+    }
+
+    if (player) {
+      player.stop();
+    }
+
+    doNotConnect = false;
+
+    player = null;
+    streamer = null;
+    currentChannel.speaking = false;
+    currentChannel.connected = false;
+    currentChannel.key = '';
+
+    resolve();
+
+  });
 }
 
 function reset() {
@@ -71,6 +82,11 @@ function reset() {
 }
 
 function connectToChannel(channel, uid) {
+
+  if (currentChannel.connected) {
+    console.log('Stop');
+    return;
+  }
 
   if (socket != undefined) {
     if (socket.connected) {
@@ -87,6 +103,7 @@ function connectToChannel(channel, uid) {
 
   let host = `https://${channel.host}`;
   let port = channel.port;
+
   if (port == undefined) {
     port = '3030'
   }
@@ -94,6 +111,8 @@ function connectToChannel(channel, uid) {
   socket = io.connect(`${host}:3030`, {
     query: `uid=${uid}&key=${channel.channelKey}`
   });
+
+  currentChannel.connected = true;
 
   currentChannel.key = channel.channelKey;
   currentChannel.connected = true;
@@ -107,19 +126,18 @@ function connectToChannel(channel, uid) {
 
     if (socket.connected && recording) {
       socket.emit('packet', { packet: outArray.buffer });
+      var msg = `Packet to send from ${id}, with ${outArray.length} bytes`;
+      console.log(msg);
     }
     // this.userSpeaking = this.me;
 
-    var msg = `Packet to send from ${id}, with ${outArray.length} bytes`;
   });
 
   player.start();
-  // streamer.start();
 
-  //Player
   socket.on('packet', function (msg) {
     if (!recording) {
-      var message = new Uint8Array(msg.data);
+      var message = new Uint8Array(msg.data.data);
 
       // Match this to id in /channels/{channelKey}/users/ list to know who is talking
       let id = message[1] * 256 + message[2];
@@ -127,8 +145,32 @@ function connectToChannel(channel, uid) {
 
       showUserSpeaking(id);
 
+      let packetType = message[0];
+
       if (player) {
-        player.onPacket(message.slice(3, message.length));
+        if (packetType == 1) {
+          player.onPacket(message.slice(3, message.length));
+        }
+
+        if (packetType == 2) {
+          // Number of opus packets in packet
+          let count = message[3];
+
+          // Starting point of data
+          let from = 4 + count;
+
+          for (let i = 0; i < count; i++) {
+            // Length of data packet
+            let length = message[4 + i];
+            let to = from + length;
+            let packet = message.slice(from, to);
+            player.onPacket(packet);
+
+            // Set the correct start of next packet
+            from = from + length;
+          }
+        }
+
       }
     }
   });
@@ -151,7 +193,11 @@ function connectToChannel(channel, uid) {
     }, function (response) {
     });
   });
+
+
+
 }
+
 
 function showUserSpeaking(id) {
 
